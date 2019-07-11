@@ -5,7 +5,7 @@ import json
 import os
 import glob
 import sys
-import matplotlib.pyplot as plt
+import getopt
 
 """
     Convert a timestamp into the amount of milliseconds passed since a certain starting value
@@ -56,15 +56,12 @@ def getFilePaths(pathToPost,globQuery):
     #Check if that phase/post2aoi path exist
     if(not os.path.exists(pathToPost)):
         print("Error: Could not find path " + pathToPost)
+        print("Make sure to define the path to the current phase with the -p command line option")
         exit(1)
 
     pathFiles = pathToPost + globQuery
     files = glob.glob(pathFiles)
 
-    """
-    for i in range(0,len(files)):
-        files[i] = os.path.split(files[i])[1]
-    """
     return(sorted(files))
 
 
@@ -156,14 +153,24 @@ def findEarliestTime(dataFramesDict):
             earliestTime = curTime
     return(earliestTime)
 
+#File must be of format {functionName,color}
+def createFuncToColor(pathToFile):
+    try:
+        toReturn ={}
+        with open(pathToFile,"r") as inFile:
+            contents = [x.strip() for x in inFile.readlines()]
+            for row in contents[1:]:
+                splitted = row.split(",")
+                if(not str(splitted[0]) in toReturn.keys()):
+                    toReturn[str(splitted[0])] = convertColor(splitted[1])
+                else:
+                    print("Error: " + splitted[0] + " was defined multiple times in file " + pathToFile)
+                    exit(1)
+        return(toReturn)
+    except FileNotFoundError:
+        print("Error: Could not find file " + pathToFile)
+        exit(1)
 
-"""
-    Read each of the iTrace-post files and creates on big pandas data frame 
-
-    Returns:
-    A pandas dataframe in time order of the following format
-    (['fix_col', 'fix_line', 'fix_time', 'fix_dur' (milliseconds), 'which_file', 'AOI'])
-"""
 def createCombinedDF(listJSONPath,listCSVPath): 
     #get the amount to adjust each AOI
     numAdjust = getNumToAdjustAOI(listJSONPath,listCSVPath)
@@ -195,243 +202,242 @@ def createCombinedDF(listJSONPath,listCSVPath):
     combinedDF["fix_dur"] = (combinedDF["fix_dur"]*(10**-6))
     return(combinedDF)
 
-
-"""
-    Creates a csv of the data in scatter plot format ([time],[AOI])
-
-    Parameters: 
-    combinedDF: pandasDF :dataFrame of ALL the csv files
-
-    Return:
-    Creates csv called "scatterData.csv"
-"""
-def createScatter(combinedDF, partName = "P0"):
+def createScatter(combinedDF,pathToOutput,partName,timeCol="fix_time",interestCol="AOI",removeWhite = True):
+    #assert that timeCol and interestCol are in combinedDF
+    if(not timeCol in combinedDF.columns or not interestCol in combinedDF.columns):
+        print("Error: Either " + timeCol + " or " + interestCol + " does not exist in the combined")
+        exit(1)
+    
+    #remove the whitespace
+    scatterDF = combinedDF.copy()
+    if(removeWhite):
+        scatterDF = scatterDF[scatterDF["AOI"] != -1]
+    
     #only get the fix_time and AOI
-    scatterDF = combinedDF[["fix_time","AOI"]].copy()
-    #plt.scatter(scatterDF.fix_time,scatterDF.AOI)
-    #plt.show()
-    #create csv
-    scatterDF.to_csv(partName + "_scatterData.csv",index = False)
+    scatterDF = scatterDF[[timeCol,interestCol]]
+    endPath = pathToOutput + "/" + partName + "_scatterData.csv"
+    scatterDF.to_csv(endPath,index = False)
     return
 
-"""
-    Creates a csv of the data in the format for the alpscarf tool ([p_name],[AOI],[dwell_duration])
+def createAlpscarf(combinedDF,pathToOutput,partName,durationCol="fix_dur",interestCol = "function",removeWhite = True):
 
-    Parameters:
-    combinedDF: pandasDF :dataFrame of ALL the csv files
-    partName: str :name of the participant (could be of form of ID)
-
-    Return:
-    Creates csv called "alpscarfData.csv"
-"""
-def createAlpscarf(combinedDF,colLabel = "AOI",partName = "P_default"):
-    """
-    #Remove the other stuff
-    alpDF = combinedDF[["fix_dur",colLabel]].copy()
-
-    #Rename all the AOIS to AOI_$num
-    if(colLabel=="AOI"):
-        alpDF.loc[:,colLabel] = alpDF[colLabel].apply(lambda x: convertAOI(str(x)))
+    #assert that timeCol and interestCol are in combinedDF
+    if(not durationCol in combinedDF.columns or not interestCol in combinedDF.columns):
+        print("Error: Either " + durationCol + " or " + interestCol + " does not exist in the combined")
+        exit(1)
     
+    #Remove the whitespace
+    alpDF = combinedDF.copy()
+    if(removeWhite):
+        alpDF = alpDF[alpDF["AOI"] != -1]
+    
+    #Get the duration and the column of interest
+    alpDF = alpDF[[durationCol,interestCol]]
 
-    #Add the participants column and rename fix_time to dwell_time
-    alpDF.loc[:,"p_name"] = [str(partName)]*len(alpDF["fix_dur"])
-    alpDF = alpDF.rename(index=str, columns={"fix_dur": "dwell_duration"})        
+    #Rename all aois to AOI_$num
+    if(interestCol=="AOI"):
+        alpDF.loc[:,interestCol] = alpDF[interestCol].apply(lambda x: convertAOI(str(x)))
 
-    #Reorder the columns
+    
+    #Add particiapnts col and rename fix_dur
+    alpDF.loc[:,"p_name"] = [partName]*len(alpDF[durationCol])
+    alpDF = alpDF.rename(index=str,columns={durationCol:"dwell_duration",interestCol:"AOI"})
+
+    #reorder the columns
     columnsToReorder = alpDF.columns.tolist()
     columnsToReorder.reverse()
     alpDF = alpDF[columnsToReorder]
 
-    #create alpScarfData
-    alpDF.to_csv(partName + "_alpscarfData.csv",index = False)
+    #CreatealpscarfData
+    endPath = pathToOutput + "/" + partName + "_alpscarfData.csv"
+    alpDF.to_csv(endPath,index=False)
     return
-    """
-"""
-    Creates a csv of the data in the format for the radial transition graph tool ([AOIName],[FixationDuration],[Stimulus],[Participant])
 
-    Parameters:
-    combinedDF: pandasDF :dataFrame of ALL the csv files
-    partName: str :name of the participant (could be of form of ID)
-    isStimFunc: bool :whether or not we should use the function name as the stimulus col or if if should use the file name as stimulus col
-    dictAOItoFunc: dict{str:list(str)} : maps a function name to a list of AOI's that correspond to that function
+def createRadial(combinedDF,pathToOutput,partName,interestCol="function",stimulusCol="which_file",durationCol="fix_dur",removeWhite = True):
+    
+    #Ensure that all the columns exist within combinedDF
+    if(not (interestCol in combinedDF.columns and stimulusCol in combinedDF.columns and durationCol in combinedDF.columns)):
+        print("Error: One or more of the following does not exist in the combinedDF")
+        print(interestCol + " " + stimulusCol + " " + durationCol)
+        exit(1)
+    
+    radialDF = combinedDF.copy()
 
-    Return:
-    Creates csv called "alpscarfData.csv"
-"""
-def createRadial(combinedDF,partName = "P_default", isStimFunc = False, dictAOItoFunc = None):
-    """
-    if(dictAOItoFunc != None and isStimFunc != False):
-        print("Radial will create the 'Stimulus' category with the function name and will remove the whitespace AOI's")
-    else:
-        print("Radial will create the 'Stimulus' category with the file name")
-
-    #Only get AOI and the fixation duration
-    radialDF = combinedDF[["AOI","fix_dur"]].copy()
-
-    #Add the stimulus column. If isStimFunc is true, then have stimulus correspond to function AOI is in 
-    if(not isStimFunc):
-        #add the file that it was in
-        radialDF.loc[:,"Stimulus"] = combinedDF["which_file"]
-    else:
-        #Get the function that the AOI belongs too via dictAOItoFunct
-        radialDF.loc[:,"Stimulus"] = combinedDF["AOI"].apply(lambda x: findFuncName(str(x),dictAOItoFunc))
-        #Remove the whitespace part since it messes with the rtgct tool
+    #Remove the whitespace from the combinedDF
+    if(removeWhite):
         radialDF = radialDF[radialDF["AOI"] != -1]
+
+    #Make sure that interestCol and stimulusCol are not the same. if they are throw an error
+    if(interestCol == stimulusCol):
+        print("Error: The Stimulus column and AOIName column for the radial graphs can not both be '" + interestCol + "'")
+        exit(1)
+
+    #Just get the columns we want and add the participant column
+    radialDF = radialDF[[interestCol,durationCol,stimulusCol]]
+    radialDF.loc[:,"Participant"]=[partName]*len(radialDF[durationCol])
     
-    #Add a participant number
-    radialDF.loc[:,"Participant"] = [partName]*len(radialDF["fix_dur"])
 
-    #rename the columns to fit accordingly
-    radialDF = radialDF.rename(index=str,columns={"fix_dur": "FixationDuration", "AOI":"AOIName"})
-    radialDF.loc[:,"AOIName"] = radialDF.loc[:,"AOIName"].apply(lambda x: convertAOI(str(x)))
-
-    #Create radialData
-    radialDF.to_csv(partName + "_radialData.csv",index=False)
-    """
-
-#AOInum must be a string
-#dictAOItoFunc must be {string : list of strings }
-def findFuncName(AOINum, dictAOItoFunc):
-    toReturn = None
-    for key,value in dictAOItoFunc.items():
-        if(AOINum in value):
-            toReturn = key
-            return(str(toReturn))
-    print("Error: Could not find AOI number " + AOINum + " in dictAOItoFunc ")
-    print('Potential error could be that the type of AOINum is wrong')
-    print("Type AOINum = ",end=' ')
-    print(type(AOINum),end=' ')
-    print(" Correct type should be str")
-    exit(1)
+    #rename the columns accordinlgy and check if the interestColumn is the AOI  number. if it is, then convert them
+    if(interestCol == "AOI"):
+        radialDF.loc[:,interestCol] = radialDF.loc[:,interestCol].apply(lambda x : convertAOI(str(x)))
+    radialDF = radialDF.rename(index=str,columns={durationCol:"FixationDuration",stimulusCol:"Stimulus",interestCol:"AOIName"})
+    
+    endPath = pathToOutput + "/" + partName+ "_radialData.csv"
+    radialDF.to_csv(endPath,index=False)
+    return
 
 
+#funcToColor is a dicionary {functionaName:color} OR {aoi:color}
+#if funcToColor is {aoi:color} it must be the ADJUSTED AOI numbers
+#The color must be in the right format (must be "#454545")
+def createColors(combinedDF,pathToOutput,partName,funcToColor,interestCol="AOI"):
+    
+    #Check if the columns exist in the combined DF
+    if(not interestCol in combinedDF.columns):
+        print("Error: " + interestCol + " does not exist in the combinedDF")
+        exit(1)
+    
 
-def createColors():
-    """
-        if(colorMatching == None):
-            print("No color csv will be created for the alpscarf tool")
-            return
-        
-        #Get the total amount of AOI's 
-        totalAOI = 0
-        for value in colorMatching.values():
-            totalAOI += len(value)
-        
-        #If there is no expected order, just make it go 1,2,3,4,5,6...
-        if(expectedOrder == None):
-            expectedOrder = list(range(1,totalAOI+1))
-        
-        #Create the AOI list
-        aoiList = list(range(-1,totalAOI-1))
+    #get all of the unique values interestCol values in the data frame,
+    interestVals = sorted(combinedDF[interestCol].unique())
 
-        colorsVect = []
-        for i in range(-1,len(aoiList)-1):
+    expectedOrder = list(range(1,len(interestVals)))
+    colorsVect = []
 
-            #Find the key in dictionary that has the number i
-            isFound = False
-            for key, value in colorMatching.items():
-                if(str(i) in value):
-                    colorsVect.append(key)
-                    isFound = True
-                    break
-            #If it wasn't found throw and error
-            if(not isFound):
-                print("Error: Color matching contains an invalid AOI number")
-                exit(1)
-        
-        aoiList = list(map(convertAOI,aoiList))
-        colorsVect = list(map(convertColor,colorsVect))
-        
-        #Create the pandas DF and create csv from it
-        colorsDF = pd.DataFrame()
-        colorsDF["AOI"] = aoiList
-        colorsDF["AOI_order"] = expectedOrder
-        colorsDF["color"] = colorsVect
+    #Search thru all of the values in the interestCol and get their color from the funcToColor dictionart
+    for curVal in interestVals:
+        if(str(curVal) in funcToColor):
+            colorsVect.append(funcToColor[curVal])
+        else:
+            print("Error: " + curVal + " was in the " + interestCol + " of the combinedDF but did not exist in the funcToColor dicionary")
+            print("Double check the file that is used to generate the funcToColor dictionary to ensure that all functions/AOI's are accounted for")
+            exit(1)
 
-        colorsDF.to_csv(partName+ "_colors.csv",index = False,quotechar = '\'')
-    """
- 
-"""
-    This program will create 3 or 4 csv files depending on the command line arguments passed in. Those csv files are as follows
-    1) A csv file with the experiment data in the format for scatter plots ([time],[AOI])
-    2) A csv file with the experiment data in the format for the alpscarf tool ([p_name],[AOI],[dwell_duration])
-    3) A csv file with the experiment data in the format for the radial transition graph tool ([AOIName],[FixationDuration],[Stimulus],[Participant])
-    4) OPTIONAL: A csv file with the coloring list for the alpscarf tool ([AOI],[AOI_order],[color]) and with the mapping of AOIS to functions
+    #Create the file
+    colorsDF = pd.DataFrame()
+    colorsDF["AOI"] = interestVals
+    colorsDF["AOI_order"] = expectedOrder
+    colorsDF["color"] = colorsVect
 
-    The program will also output to stdout which AOI's number map to which file
+    endPath = pathToOutput + "/" + partName + "_colors.csv"
+    colorsDF.to_csv(endPath,index=False,quotechar = '\'')
+    return
 
-    Usage:
-    python3 genVisualData.py <path to jsonFiles> <path to csvFiles> <participantID> OPTIONAL<fileToColorMatching>
 
-    Requirements:
-    pandas module
-    glob module
-    csvPath and jsonPath directories only contain csv and json files generated from itrace post
-"""
+
 def main():
-
-    ABSPATH = "./619/Bug1/processed/1_1560946280495-1560946413840/post2aoi"
-    #print(getFileNames("./post2aoi","/*.csv"))
-    #print(getFileNames("./post2aoi","/*.json"))
-    listCSV = getFilePaths(ABSPATH,"/*.csv")
-    listJSON = getFilePaths(ABSPATH,"/*.json")
+    #getopt stuff 
+    try:
+        options,arguments = getopt.getopt(sys.argv[1:],"hp:c:a:r:s:i:o:",["help","path=","colors=","alpscarf=","radial=","stimulus=","id=","output="])
+    except getopt.GetoptError as err:
+        print(err)
+        usage()
+        exit(1)
     
-    print(createCombinedDF(listJSON,listCSV).to_string(index=False))
+    #Variables for the graphs
+    phasePath ="."
+    outputPath="."
+    partID=0
+    colorsFile=None
+    alpScarfAOI=None
+    radialInterest=None
+    radialStimulus=None
+    
+    #Take care of the options
+    for opt,arg in options:
+        if(opt in ("-p","--path") ):
+            phasePath = arg
+        elif(opt in ("-c,--colors")):
+            colorsFile = arg
+        elif(opt in ("-a","--alpscarf")):
+            alpscarfAOI=arg
+        elif(opt in ("-r","--radial")):
+            radialInterest=arg
+        elif(opt in ("-s","--stimulus")):
+            radialStimulus=arg
+        elif(opt in ("-i","--id")):
+            partID = arg
+        elif(opt in ("-o","--output")):
+            outputPath = arg
+        elif(opt in ("-h","--help")):
+            usage()
+            exit(1)
+        else:
+            assert False, "unhandled option"
+    
+    #make sure the partID is still an integer
+    try:
+        int(partID)
+    except ValueError:
+        print("Participant ID must be an integer")
+        exit(1)
+    #Modify the ID to be of form Pid
+    partID = "P" + str(partID)
+
+    #Modify the phase path and output path to not included the final /
+    phasePath = modPathName(phasePath)
+    outputPath = modPathName(outputPath)
+
+    #Check to see if the phasePath contains a post2aoi directory. If it doesnt, throw an error
+    if(not os.path.exists(phasePath+"/post2aoi")):
+        print("Error: The required post2aoi directory does not exist within the path" + phasePath)
+        print("Make sure the phase path is a path to a phase directory")
+        exit(1)
+    else:
+        phasePath = phasePath + "/post2aoi"
+    
+    #Create the output directory if it doesnt exist
+    if(not os.path.exists(outputPath + "/output")):
+        print("No output directory exists so one will be created with the name 'output'")
+        outputPath = outputPath + "/output"
+        os.makedirs(outputPath)
+    else:
+        print("Output directory exists. The contents of it will be overwritten")
+        outputPath = outputPath + "/output"
+    
+    #Create the combinedDF
+    listCSV = getFilePaths(phasePath,"/*.csv")
+    listJSON = getFilePaths(phasePath,"/*.json")
+    myComb = createCombinedDF(listJSON,listCSV)
+
+    #Create colors
+    if(colorsFile != None):
+        temp = createFuncToColor(colorsFile)
+        createColors(myComb,outputPath,partID,temp)
+    
+    #Create alp
+    if(alpScarfAOI != None):
+        createAlpscarf(myComb,outputPath,partID,interestCol=alpScarfAOI)
+    else:
+        createAlpscarf(myComb,outputPath,partID)
+    
+    #Create radial
+    if(radialInterest == None and radialStimulus == None):
+        createRadial(myComb,outputPath,partID)
+    elif(radialInterest != None and radialStimulus == None):
+        createRadial(myComb,outputPath,partID,interestCol=radialInterest)
+    elif(radialInterest == None and radialStimulus != None):
+        createRadial(myComb,outputPath,partID,stimulusCol=radialStimulus)
+    else:
+        createRadial(myComb,outputPath,partID,stimulusCol=radialStimulus,interestCol=radialInterest)
+
+    #Create scatter
+    createScatter(myComb,outputPath,partID)
+
+    
+def modPathName(pathName):
+    return(pathName if pathName[len(pathName)-1] != "/" else pathName[0:len(pathName)-1])
 
 
-
-    """
-    argc = len(sys.argv)
-    argv = sys.argv
-    """
-
-
-
-
-#Return tuple of dicitonaries
-#1st one is dictinoary of {color:AOI} 2nd is dictionary {functionName:AOI}
-#File must be of format AOINumber,Top,Left,Bottom,Right,Component,Color
-#Where top,left,bottom,right is taken directyl from the json file and is the adjusted AOI numbers
-def parseAOI_Func_Color(fileName):
-
-    colorDict = {}
-    funcDict = {}
-    with open(fileName,"r") as inFile:
-        contents = [x.strip() for x in inFile.readlines()[1:] ]
-        for row in contents:
-            #Split row by ,
-            splitRow = row.split(',')
-            #Get the color, AOI, and Func
-        
-            aoi = str(splitRow[0])
-            component= str(splitRow[5])
-            color = str(splitRow[6])
-           
-            if(component in funcDict):
-                funcDict[component].append(aoi)
-            else:
-                funcDict[component] = [aoi]
-            
-            if(color in colorDict):
-                colorDict[color].append(aoi)
-            else:
-                colorDict[color] = [aoi]
-    return( (colorDict,funcDict) )
-
-
-
+def usage():
+    print("Command line options for getopt\n")
+    print("-p --path: requires a path to phase directory (a phase is a directory like 0_startTimestamp-endTimeStamp) THIS DIRECTORY MUST CONTAIN A post2aoi directory")
+    print("-c --colors: requires a text file that contains a mapping of functions to hex colors")
+    print("-a --alpscarf: requires a string that indicates that the alpscarf plot data should be generate with the AOI column as the passed in argument")
+    print("-r --radial: requires a string that indicates the radial data should be generated with the AOIName column as the passed in argumenet")
+    print("-s --stimulus: requires a string that indicates the radial data should be genreate with the stimulus column as the passed in argument")
+    print("-i --id: requires an int that represents the id of the participant")
+    print("-o --output: requires a path to directory where the 'output' subdirectory will be created that stores all of the files")
 
 if __name__ == '__main__':
     main()
-
-
-
-
-"""
-Command line options for getopt
--p --path (requires path) : path to phase directory (a phase is a directory like 0_startTimestamp-endTimeStamp) THIS DIRECTORY MUST CONTAIN A post2aoi directory
--c --colors (requires file): text file that contains a mapping of functions to hex colors
--g --global : option that indicates the scarf plot data be generated based on the files rather than the 
--i --id (optional but if used, requires int): the id of the participant 
-"""
