@@ -1,0 +1,10 @@
+Entity-Color
+Help.java-97FF00
+MineGenerator.java-0000FF
+MineSweeper.java-055000
+MineSweeperBoard.java-FF0000
+CustomMenu.java-B29800
+MineButton.java-9B00FF
+MineSweeperGui.java-FFA600
+Piece.java-FFFF00
+Space.java-808080
