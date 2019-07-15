@@ -109,7 +109,7 @@ def main():
 
     createColorMapping("funcToColor.json")
 
-    paths = getListPhase("./Nick/bug1/processed")
+    paths = getListPhase("./Maddie/bug2/processed")
     print(paths)
     for path in paths:
         toRun = ["python3","genVisualPhase.py","-p",path,"-o",path,"-c","funcCol_func.txt"]
