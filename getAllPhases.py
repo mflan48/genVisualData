@@ -4,10 +4,13 @@ import getopt
 import glob
 import numpy as np
 import json
+import random
+
+SEED = 400
 
 #get the list of all of the phase directiries
 def getListPhase(pathToProcessed="."):
-    return(glob.glob(pathToProcessed+ "/*/"))
+    return(sorted(glob.glob(pathToProcessed+ "/*/")))
 
 
 """
@@ -46,19 +49,23 @@ def createColRange(listRanges,numCol):
     greenRange = [padHex(x).split('x')[1] for x in np.linspace(gBeg,gEnd,num=numCol,dtype=int)]
     blueRange = [padHex(x).split('x')[1] for x in np.linspace(bBeg,bEnd,num=numCol,dtype=int)]
 
+
     #Append the ranges together to create the hex color 
     toReturn = []
     for i in range(0,len(redRange)):
         toReturn.append(redRange[i] + greenRange[i]+blueRange[i])
+    random.shuffle(toReturn)
     return(toReturn)
 
 #used to create the function to color mapping that will be passed into the command line
-def createColorMapping(jsonFileName):
+def createColorMapping(jsonFileName,combComFunc=False):
     #Each list represents a list of rBeg,rEnd,gBeg,gEnd,bBeg,bEnd values that is used 
     #This dict is used for the file funcColors_func.txt which has each software entity be its own color based of the auto g
     #generated coloring scheme
+    
+    #smaller range
     dictFileCol = {}
-    dictFileCol["Help"] = [0,200,244,255,170,200] #Range for light green 
+    dictFileCol["Help"] = [0,200,244,255,180,200] #Range for light green 
     dictFileCol["Piece"] = [235,255,235,255,90,170] #Range for light yellow 
     dictFileCol["Space"] = [126,230,126,230,126,230] #Range for grey
     dictFileCol["MineSweeperBoard"] = [144,255,80,120,144,255] #Range for DarkRed and DarkBlue
@@ -67,7 +74,9 @@ def createColorMapping(jsonFileName):
     dictFileCol["CustomMenu"] = [100,160,140,160,0,88] #Range for Dark yellow
     dictFileCol["MineGenerator"] = [0,177,254,255,217,255] #Range for light blue
     dictFileCol["MineSweeper"] = [0,100,88,124,0,100] #Range for dark green
+    
 
+    
     #This dict is used for the file funcColors_file.txt which has each software entity 
     # in the same FILE (Help.java,CustomMenu.java etc) be the same color
     dict2 = {}
@@ -93,34 +102,65 @@ def createColorMapping(jsonFileName):
 
             #Get the amount entities for that file and create the color range for it
             amountForCol = len(data[curFile])
-            curColList = createColRange(dictFileCol[curFile],amountForCol)
+            curColList = None
+            #If we are combining the coments and functions, make the size we want halfed else get the full amount
+            if(combComFunc):
+                curColList = createColRange(dictFileCol[curFile],int(amountForCol/2)+1)
+            else:
+                curColList = createColRange(dictFileCol[curFile],amountForCol)
+           
             
             myWrite.write(curFile+".java-"+dict2[curFile]+'\n')
+
             #Write to the file each color each entity is supposed to be 
             i = 0
-            for entity in data[curFile]:
+            addI = False
+            #We read backwards just incase we need to combine comments and functions
+            for entity in list(data[curFile].keys())[::-1]:
                 toWrite.write(entity + "-" + curColList[i] + '\n')
-                i = i + 1
+                #If we are combining comments and functions
+                if(combComFunc):
+                    if not addI:
+                        i = i+1
+                        addI = True
+                    else:
+                        addI = False
+                else:
+                    i = i+1
         #Manually add the NONE one in
         toWrite.write("NONE-000000\n")
 
 
 def main():
 
+    random.seed(SEED)
     createColorMapping("funcToColor.json")
 
-    paths = getListPhase("./Maddie/bug2/processed")
-    print(paths)
+    
+    paths = getListPhase("./Nick/bug1/processed")
     for path in paths:
         toRun = ["python3","genVisualPhase.py","-p",path,"-o",path,"-c","funcCol_func.txt"]
         subprocess.call(toRun)
-
-
+    
 
 
 
 if __name__=="__main__":
     main()
 
+
+"""
+    #wider range
+    dictFileCol = {}
+    dictFileCol["Help"] = [0,200,200,255,150,200] #Range for light green 
+    dictFileCol["Piece"] = [205,255,205,255,70,200] #Range for light yellow 
+    dictFileCol["Space"] = [100,240,100,240,100,240] #Range for grey
+    dictFileCol["MineSweeperBoard"] = [100,255,40,160,100,255] #Range for DarkRed and DarkBlue
+    dictFileCol["MineButton"] = [30,200,0,150,120,255] #Range for purple
+    dictFileCol["MineSweeperGui"] = [150,255,100,200,0,100] #Range for Orange
+    dictFileCol["CustomMenu"] = [100,200,120,180,0,120] #Range for Dark yellow
+    dictFileCol["MineGenerator"] = [0,180,210,255,210,255] #Range for light blue
+    dictFileCol["MineSweeper"] = [0,100,80,140,0,100] #Range for dark green
+"""
 
 

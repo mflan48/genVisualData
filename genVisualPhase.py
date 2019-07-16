@@ -324,6 +324,16 @@ def createColors(combinedDF,pathToOutput,partName,funcToColor,interestCol="funct
     return
 
 
+def createMultiMatch(combinedDF, pathToOutput,partName,durationCol="fix_dur",pixXCol="pixel_x",pixYCol="pixel_y",removeWhite=True):
+    multiDF = combinedDF.copy()
+    if(removeWhite):
+        multiDF = multiDF[multiDF["AOI"]!=-1]
+    multiDF = multiDF[[pixXCol,pixYCol,durationCol]]
+    multiDF.loc[:,durationCol] = multiDF.loc[:,durationCol]*(10**-3)
+    multiDF = multiDF.rename(index=str,columns={durationCol:"duration",pixXCol:"start_x",pixYCol:"start_y"})
+    endPath = pathToOutput+"/"+partName+"_multiMatchData.tsv"
+    multiDF.to_csv(endPath,sep="\t",index=False)
+
 
 def main():
     #getopt stuff 
@@ -425,6 +435,7 @@ def main():
 
     #Create scatter
     createScatter(myComb,outputPath,partID)
+    createMultiMatch(myComb,outputPath,partID)
 
     
 def modPathName(pathName):
