@@ -200,8 +200,9 @@ def createMultiMatch(combinedDF,durationCol="fix_dur",pixXCol="pixel_x",pixYCol=
     return(multiDF)
 
 #Create all of the files with the right options in the phaseDF
+#phaseDF must contain a column that has the phase number in it
 #OutputPath must not contain final "/"
-def createOnePhase(phaseDF,outputPath,partID,isColors:str=None,isAlpScarf:str=None,isRadial:str=None,isStimulus:str=None):
+def createPhase(phaseDF,outputPath,partID,isColors:str=None,isAlpScarf:str=None,isRadial:str=None,isStimulus:str=None):
     
     #file path Prefix
     prefix = outputPath + "/" + partID + "_"
@@ -248,7 +249,6 @@ def parseMergeCSV(mergedDF,endPhase0,endPhase1,timeCol="fix_time"):
     phaseOneDF = None
     phaseTwoDF = None
 
-    print(mergedDF[timeCol] < endPhase0)
 
     phaseZeroDF = mergedDF.loc[mergedDF[timeCol] < endPhase0].copy()
     phaseOneDF = mergedDF.loc[ (endPhase0 <= mergedDF[timeCol]) & (mergedDF[timeCol] < endPhase1)].copy()
@@ -256,16 +256,18 @@ def parseMergeCSV(mergedDF,endPhase0,endPhase1,timeCol="fix_time"):
     phaseZeroDF["Phase"] = "Phase0"
     phaseOneDF["Phase"] = "Phase1"
     phaseTwoDF["Phase"] = "Phase2"
+    """    
     print(phaseZeroDF)
     print(phaseOneDF)
     print(phaseTwoDF)
+    """
     return(phaseZeroDF,phaseOneDF,phaseTwoDF)
 
 def createMergeDF(csvFile,timeCol="fix_time",durCol="fix_dur"):
+    #Read in the csv and convert the timestamps to unix time and convert the duration column to millisec
     mergedDF = pd.read_csv(csvFile)
-    mergedDF[timeCol] = mergedDF[timeCol].apply(lambda x: convertTimeStamp(str(x)))
+    #mergedDF[timeCol] = mergedDF[timeCol].apply(lambda x: convertTimeStamp(str(x)))
     mergedDF[durCol] = mergedDF[durCol]*(10**-6)
-    print(mergedDF[timeCol].iloc[0])
     return(mergedDF)
 
 
@@ -273,15 +275,24 @@ def main():
 
     #getopt stuff 
     try:
-        options,arguments = getopt.getopt(sys.argv[1:],"hc:a:r:s:i:o:",["help","colors=","alpscarf=","radial=","stimulus=","id=","output="])
+        options,arguments = getopt.getopt(sys.argv[1:],"hp:c:a:r:s:i:z:o:t:e:f:",["help","path=","colors=","alpscarf=","radial=","stimulus=","id=","zeroDir=","oneDir=","twoDir=","endPhaseZero=","finishPhaseOne="])
     except getopt.GetoptError as err:
         print(err)
         usage()
         exit(1)
     
     #Variables for the graphs
-    outputPath="."
-    partID=1
+    inputPath = None
+
+    #Variables for directories to each phase output
+    zeroDir = None
+    oneDir = None
+    twoDir = None
+
+    endTime0 = None
+    endTime1 = None
+
+    partID=None
     colorsFile=None
     alpScarfAOI=None
     radialInterest=None
@@ -292,7 +303,9 @@ def main():
     
     #Take care of the options
     for opt,arg in options:
-        if(opt in ("-c,--colors")):
+        if(opt in ("-p","--path")):
+            inputPath = arg
+        elif(opt in ("-c,--colors")):
             colorsFile = arg
         elif(opt in ("-a","--alpscarf")):
             alpScarfAOI=arg
@@ -302,55 +315,143 @@ def main():
             radialStimulus=arg
         elif(opt in ("-i","--id")):
             partID = arg
-        elif(opt in ("-o","--output")):
-            outputPath = arg
+        elif(opt in ("-z","--zeroDir")):
+            zeroDir = arg
+        elif(opt in ("-o","--oneDir")):
+            oneDir = arg
+        elif(opt in ("-t","--twoDir")):
+            twoDir = arg
+        elif(opt in ("-e","--endPhaseZero")):
+            endTime0 = arg
+        elif(opt in ("-f","--finishPhaseOne")):
+            endTime1 = arg
         elif(opt in ("-h","--help")):
             usage()
             exit(1)
         else:
             assert False, "unhandled option"
     
-    #make sure the partID is still an integer
-    try:
-        int(partID)
-    except ValueError:
-        print("Participant ID must be an integer")
+    #Check to make sure a file was passed in 
+    if(inputPath == None):
+        print("Error: The -p option was not used. This is a required argument, see usage for more details")
         exit(1)
+    elif(not os.path.exists(inputPath)):
+        print("Error: " + inputPath + " is not a valid path")
+        exit(1)
+
+    #Check to make sure all the putput directories exist
+    if(zeroDir ==None):
+        print("Error: The -z option was not used. This is a required argument, see usage for more details")
+        exit(1)
+    elif(not os.path.exists(zeroDir)):
+        print("Error: " + zeroDir + " does not exist. Exiting program")
+        exit(1)
+
+    if(oneDir == None):
+        print("Error: The -o option was not used. This is a required argument, see usage for more details")
+        exit(1)
+    elif(not os.path.exists(oneDir)):
+        print("Error: " + oneDir + " does not exist. Exiting program")
+        exit(1)
+
+    if(twoDir == None):
+        print("Error: The -t option was not used. This is a required argument, see usage for more details")
+        exit(1)
+    elif(not os.path.exists(twoDir)):
+        print("Error: " + twoDir + " does not exist. Exiting program")
+        exit(1)
+    
+    #Check to make sure the end times were passed in and that they are ints
+    if(endTime0 == None):
+        print("Error: The -e option was not used. This is a required argument, see usage for more details")
+        exit(1)
+    if(endTime1 == None):
+        print("Error: The -f option was not used. This is a required argument, see usage for details")
+        exit(1)
+
+    if(partID == None):
+        print("Error: The -i option was not used. This is a required argument, see usage for more details")
+        exit(1)
+    else:
+        #make sure the partID is still an integer
+        try:
+            int(partID)
+        except ValueError:
+            print("Participant ID must be an integer")
+            exit(1)
+    
+
     #Modify the ID to be of form Pid
     partID = "P" + str(partID)
 
-    #Modify the output path to not included the final /
-    outputPath = modPathName(outputPath)
+    #Check if the two end times are valid
+    if(endTime0 == None):
+        print("Error: The -e option was not used. This is a required argument, see usage for more details")
+        exit(1)
+    else:
+        try:
+            int(endTime0)
+        except ValueError:
+            print("EndPhase0 must be an integer")
+            exit(1)
 
+    if(endTime1 == None):
+        print("Error: The -f option was not used. This is a required argument, see usage for more details")
+        exit(1)
+    else:
+        try:
+            int(endTime1)
+        except ValueError:
+            print("finishPhase1 must be an integer")
+            exit(1)
     
-    #Create the output directory if it doesnt exist
-    if(not os.path.exists(outputPath)):
-        print("Output directory does not exist so one will be created at path " + outputPath)
-        os.makedirs(outputPath)
+    #Convert them to ints
+    endTime0 = int(endTime0)
+    endTime1 = int(endTime1)
 
-    temp = createMergeDF("./merged_data.csv")
-    phase1,phase2,phase3 = parseMergeCSV(temp,1563386418151,1563388213657)
-    #print(phase1)
-    #createOnePhase(testDF,outputPath,partID,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
-
-
+    #Modify the input/output paths to not included the final /
+    inputPath = modPathName(inputPath)
+    zeroDir = modPathName(zeroDir)
+    oneDir = modPathName(oneDir)
+    twoDir = modPathName(twoDir)
 
 
+    #Create the mergedDF by reading in the file from the input path
+    mergedDF = createMergeDF(inputPath)
+    phase0,phase1,phase2 = parseMergeCSV(mergedDF,endPhase0 = endTime0,endPhase1 = endTime1)
+    createPhase(phase0,zeroDir,partID,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
+    createPhase(phase1,oneDir,partID,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
+    createPhase(phase2,twoDir,partID,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
 
 
-    
 def modPathName(pathName):
     return(pathName if pathName[len(pathName)-1] != "/" else pathName[0:len(pathName)-1])
 
 
 def usage():
-    print("Command line options for getopt\n")
-    print("-c --colors: requires a text file that contains a mapping of functions to hex colors")
-    print("-a --alpscarf: requires a string that indicates that the alpscarf plot data should be generate with the AOI column as the passed in argument")
-    print("-r --radial: requires a string that indicates the radial data should be generated with the AOIName column as the passed in argumenet")
-    print("-s --stimulus: requires a string that indicates the radial data should be genreate with the stimulus column as the passed in argument")
-    print("-i --id: requires an int that represents the id of the participant")
-    print("-o --output: requires a path to directory where the 'output' subdirectory will be created that stores all of the files")
-    print("-h --help: displays this message")
+    print("----------Description----------\n")
+    print("This script is used to generate data for the following: alpscarf tool, radial transition graph tool, scatter plots, multimatch tool." + 
+            " It creates these csv files from the merged_data.csv file that is created for each bug for each participant in the iTracePost Module." + 
+            " For our experiment, we are splitting the merged_data into three 'phases'. These phases are 1)finding initial points" +
+            "2)building on initial points and 3)Fixing the bug.  In order to split the data up this way, two epoch times are passed in as" +
+            "command line arguments 'endPhaseZero' and 'finishPhaseOne', where they represent the end time of phase 0 and" +
+            "end time of phase 1. After each phase is created, the csv data files for all of the tools/strategies will be created" +
+            "for each phase. This will be stored in the passed in arguments 'zeroDir', 'oneDir', and 'twoDir'.\n")
+
+    print("----------Required Arguments----------\n")
+    print("-p --path: requires a path to csv file that contains the merged data from iTracePost. This is a REQUIRED argument")
+    print("-i --id: requires an int that represents the id of the participant. This is a REQUIRED argument")
+    print("-z --zeroDir: requires a path to the directory that will hold the information for Phase Zero data created by the script. This is a REQUIRED argument")
+    print("-o --oneDir: requires a path to the directory that will hold the information for Phase One data created by the script. This is a REQUIRED argument")
+    print("-t --twoDir: requires a path to the directory that will hold the information for Phase Two data created by the script. This is a REQUIRED argument")
+    print("-e --endPhaseZero: requires an epoch time that represents the time phase zero has ended and phase one has started for this participant. This is a REQUIRED argument")
+    print("-f --finishPhaseOne: requires an epoch time that represents the time phase one has ended and phase two has started for this participant. This is a REQUIRED argument")
+    print("\n")
+    print("----------Optional Arguments----------\n")
+    print("-c --colors: requires a text file that contains a mapping of functions to hex colors. This is an OPTIONAL argument")
+    print("-a --alpscarf: requires a string that indicates that the alpscarf plot data should be generate with the AOI column as the passed in argument. This is an OPTIONAL argument")
+    print("-r --radial: requires a string that indicates the radial data should be generated with the AOIName column as the passed in argument. This is an OPTIONAL argument")
+    print("-s --stimulus: requires a string that indicates the radial data should be genreate with the stimulus column as the passed in argument. This is an OPTIONAL argument")
+    print("-h --help: displays this message\n")
 if __name__ == '__main__':
     main()

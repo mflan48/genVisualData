@@ -4,14 +4,14 @@ import pandas as pd
 import glob
 import multimatch_gaze as mGaze
 
-def modPathName(pathName:str):
+def modPathName(pathName):
     return(pathName if pathName[len(pathName)-1] != "/" else pathName[0:len(pathName)-1])
 
-def modCSVName(name:str):
+def modCSVName(name):
     return(name if name.split(".")[-1]==".csv" else name+".csv")
 
 #run a single comparison
-def getSingleComparision(pathToFile1:str,pathToFile2:str,inSize = [1920,1080]):
+def getSingleComparision(pathToFile1,pathToFile2,inSize = [1920,1080]):
     fix_vector1 = np.recfromcsv(pathToFile1,delimiter='\t'
         ,dtype={'names':('start_x','start_y','duration'),'formats':('f8','f8','f8')})
     fix_vector2 = np.recfromcsv(pathToFile2,delimiter='\t'
@@ -23,7 +23,7 @@ def getSingleComparision(pathToFile1:str,pathToFile2:str,inSize = [1920,1080]):
 
 #ListFiles and listPartID are parell vectors. That is, the first file in listFiles is the one for the first entry in listPartID
 #this would need to be called on each phase
-def pairWiseComparison(listFiles:list,listPartID:list):
+def pairWiseComparison(listFiles,listPartID):
     if(len(listFiles) != len(listPartID)):
         print("Error: The two list for pairWiseComparison are not the same length")
         return
@@ -40,7 +40,7 @@ def pairWiseComparison(listFiles:list,listPartID:list):
 #these files must be in a directory that represents one of the phases we want to conduct the multimatch analysis on
 #Directory to phase must not contain the final /
 #this function will also extract the ID of the participants
-def readInFiles(directoryToPhase:str):
+def readInFiles(directoryToPhase):
     fileList = sorted(glob.glob(directoryToPhase + "/P?_*multiMatch.tsv"))
     idList = list()
     for curPath in fileList:
@@ -51,7 +51,7 @@ def readInFiles(directoryToPhase:str):
 
 
 #Create the csv file
-def createMultiCSV(directoryToPhase:str, outputName:str,outputPath="."):
+def createMultiCSV(directoryToPhase, outputName,outputPath="."):
     #Fix the names if needed
     directoryToPhase = modPathName(directoryToPhase)
     outputName = modCSVName(outputName)
