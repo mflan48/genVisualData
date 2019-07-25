@@ -6,6 +6,7 @@ import os
 import glob
 import sys
 import getopt
+from collections import defaultdict
 
 """
     Convert a timestamp into the amount of milliseconds passed since a certain starting value
@@ -46,13 +47,10 @@ def convertColor(myColor):
 
 
 #JUST GET THE ORIGNAL MINESWEEPER FILE NAME AND ADD .java
-#how we store the 
 def getFileNameFromPath(filePath):
     #split path to just get the file then just get the file.java
     return(os.path.split(filePath)[1].split(".")[0] + ".java")
         #fileName.split(".")[0] + ".java")
-
-
 
 #File must be of format {functionName-color}
 def createFuncToColor(pathToFile):
@@ -71,10 +69,6 @@ def createFuncToColor(pathToFile):
     except FileNotFoundError:
         print("Error: Could not find file " + pathToFile)
         exit(1)
-
-
-
-
 
 def createScatter(combinedDF,timeCol="fix_time",interestCol="AOI",removeWhite = True):
     #assert that timeCol and interestCol are in combinedDF
@@ -155,7 +149,6 @@ def createRadial(combinedDF,partName,interestCol="function",stimulusCol="which_f
     
     return(radialDF)
 
-
 #funcToColor is a dicionary {functionaName:color} OR {aoi:color}
 #if funcToColor is {aoi:color} it must be the ADJUSTED AOI numbers
 #The color must be in the right format (must be "#454545")
@@ -189,7 +182,6 @@ def createColors(combinedDF,funcToColor,interestCol="function"):
     colorsDF["color"] = colorsVect
     return(colorsDF)
 
-
 def createMultiMatch(combinedDF,durationCol="fix_dur",pixXCol="pixel_x",pixYCol="pixel_y",removeWhite=True):
     multiDF = combinedDF.copy()
     if(removeWhite):
@@ -202,16 +194,16 @@ def createMultiMatch(combinedDF,durationCol="fix_dur",pixXCol="pixel_x",pixYCol=
 #Create all of the files with the right options in the phaseDF
 #phaseDF must contain a column that has the phase number in it
 #OutputPath must not contain final "/"
-def createPhase(phaseDF,outputPath,partID,isColors:str=None,isAlpScarf:str=None,isRadial:str=None,isStimulus:str=None):
+def createSinglePhase(phaseDF,outputPath,partID,phaseNumber,isColors=None,isAlpScarf=None,isRadial=None,isStimulus=None):
     
     #file path Prefix
-    prefix = outputPath + "/" + partID + "_"
+    prefix = outputPath + "/" + partID + "_Phase" + str(phaseNumber) + "_"
     
     #Check if we should create the colors file
     if(isColors != None):
         temp = createFuncToColor(isColors)
         colorsDF = createColors(phaseDF,temp)
-        colorsDF.to_csv(prefix+ "colors.csv",index=False)
+        colorsDF.to_csv(prefix+ "colors.csv",index=False,quotechar ='\'')
     
     #Create the alpscarf
     alpScarfDF = None
@@ -240,7 +232,7 @@ def createPhase(phaseDF,outputPath,partID,isColors:str=None,isAlpScarf:str=None,
     
     #Create multimatch
     multiDF = createMultiMatch(phaseDF)
-    multiDF.to_csv(prefix+"mulitMatch.csv",index=False)
+    multiDF.to_csv(prefix+"multiMatch.tsv",index=False,sep='\t')
 
 #The mergedDF represents a dataframe that has all of the times converted
 #This will create three data frames that have an extra column that indicates what phase they are on
@@ -256,11 +248,7 @@ def parseMergeCSV(mergedDF,endPhase0,endPhase1,timeCol="fix_time"):
     phaseZeroDF["Phase"] = "Phase0"
     phaseOneDF["Phase"] = "Phase1"
     phaseTwoDF["Phase"] = "Phase2"
-    """    
-    print(phaseZeroDF)
-    print(phaseOneDF)
-    print(phaseTwoDF)
-    """
+
     return(phaseZeroDF,phaseOneDF,phaseTwoDF)
 
 def createMergeDF(csvFile,timeCol="fix_time",durCol="fix_dur"):
@@ -269,6 +257,75 @@ def createMergeDF(csvFile,timeCol="fix_time",durCol="fix_dur"):
     #mergedDF[timeCol] = mergedDF[timeCol].apply(lambda x: convertTimeStamp(str(x)))
     mergedDF[durCol] = mergedDF[durCol]*(10**-6)
     return(mergedDF)
+
+#listFix is the list of software entities visited in the correct order
+#Return dataframe that is of following form
+"""
+    cols Memeber_Variable   Comment ...
+    rows
+    Member_Variable 0   0   ...  
+    Comment 1   3   
+    .
+    .
+    .
+"""
+def createTransMatrix(phaseDF, partID,phaseNum,entityCol="entity", allEntity=["Member_Variable","Comment","Bug_Report","Class_Signature","Method_Body","Method_Signature","NONE"]):
+    #Get a list of all of the entities in the phaseDF
+    listEntity = phaseDF.copy()[entityCol].tolist()
+    colEntities = ["ParticipantID","Phase","Source"] + allEntity
+    rowEntities = allEntity
+    #Create the dataframe to return
+    rowDF = pd.Index(rowEntities,name="rows")
+    cols = pd.Index(colEntities,name="cols")
+    toReturnDF = pd.DataFrame(0,columns=cols,index=rowDF)
+    
+    for i in range(0,len(listEntity)-1):
+        src = listEntity[i]
+        dest = listEntity[i+1]
+        if(src not in rowEntities or dest not in rowEntities):
+            print("Error: One of the following is not in the allEntity list")
+            print("Pos. Entries: " + str(src) +  " : " + str(dest))
+            print("rowEntity list = " + rowEntities)
+            exit(1)
+        if(src != dest):
+            toReturnDF[src][dest] += 1
+            toReturnDF[dest][src] += 1
+    #Add a two columns 
+    toReturnDF["ParticipantID"] = [str(partID)]*toReturnDF.shape[0]
+    toReturnDF["Phase"] = [str(phaseNum)]*toReturnDF.shape[0]
+    toReturnDF["Source"]= allEntity
+    return(toReturnDF)
+
+#Returns dictionary of percentages of time spend in the values in the wantEntity lsit
+def createDistMatrix(phaseDF,partID,phaseNum,entityCol="entity",durCol="fix_dur",wantEntity=["Member_Variable","Comment","Bug_Report","Class_Signature","Method_Body","Method_Signature","NONE"]):
+    #Group the phaseDF by the entity columns
+    groups = phaseDF.copy().groupby(entityCol)
+
+    entityDict = {}
+    totalTime = 0.0
+    for name,curGroup in groups:
+        curSum = curGroup[durCol].sum()
+        totalTime += float(curSum)
+        entityDict[name] = curSum
+
+    
+    toReturn = pd.DataFrame(columns=["ParticipantID","Phase"]+wantEntity)
+    myDict = {}
+    for key in wantEntity:
+        if(not key in entityDict.keys()):
+            myDict[key] = str(0) + '%'
+        else:
+            myDict[key] = str(round(entityDict[key]/totalTime*100,2)) + '%'
+    myDict["ParticipantID"]=partID
+    myDict["Phase"]=str(phaseNum)
+    toReturn = toReturn.append(myDict,ignore_index=True)
+    return(toReturn)
+
+
+
+    
+
+
 
 
 def main():
@@ -283,12 +340,11 @@ def main():
     
     #Variables for the graphs
     inputPath = None
-
     #Variables for directories to each phase output
     zeroDir = None
     oneDir = None
     twoDir = None
-
+    #Variavles for the ending times of the phases
     endTime0 = None
     endTime1 = None
 
@@ -419,9 +475,9 @@ def main():
     #Create the mergedDF by reading in the file from the input path
     mergedDF = createMergeDF(inputPath)
     phase0,phase1,phase2 = parseMergeCSV(mergedDF,endPhase0 = endTime0,endPhase1 = endTime1)
-    createPhase(phase0,zeroDir,partID,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
-    createPhase(phase1,oneDir,partID,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
-    createPhase(phase2,twoDir,partID,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
+    createPhase(phase0,zeroDir,partID,0,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
+    createPhase(phase1,oneDir,partID,1,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
+    createPhase(phase2,twoDir,partID,2,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
 
 
 def modPathName(pathName):
@@ -453,5 +509,8 @@ def usage():
     print("-r --radial: requires a string that indicates the radial data should be generated with the AOIName column as the passed in argument. This is an OPTIONAL argument")
     print("-s --stimulus: requires a string that indicates the radial data should be genreate with the stimulus column as the passed in argument. This is an OPTIONAL argument")
     print("-h --help: displays this message\n")
+
+
+
 if __name__ == '__main__':
     main()

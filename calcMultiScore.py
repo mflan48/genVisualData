@@ -30,10 +30,23 @@ def pairWiseComparison(listFiles,listPartID):
     header = ["Part1_ID","Part2_ID","Shape","Length","Direction","Position","Duration"]
     arr2d = []
     for i in range(0,len(listPartID)):
+        #check if multimatch file for part i is valie
+        with open(listFiles[i],"r") as file1:
+            if(len(file1.readlines()) == 1):
+                print("Skipping participant " +str(listPartID[i]) +" because their multimatch.tsv is empty")
+                continue
+
         for j in range(i+1,len(listPartID)):
+            #check if the multimatch file for part j  participants is valid
+            with open(listFiles[j],"r") as file2:
+                if(len(file2.readlines()) == 1):
+                    print("Skipping participant " +str(listPartID[j]) +" because their multimatch.tsv is empty")
+                    continue
+            
             print("Doing comparison for participant " + str(listPartID[i]) + " and " + str(listPartID[j]))
             toAddList = [listPartID[i],listPartID[j]] + getSingleComparision(listFiles[i],listFiles[j])
             arr2d.append(toAddList)
+    
     return(pd.DataFrame(arr2d,columns=header))
     
 #The multimatch files need to have format Pid_ANYTHING IN BETWEEN_multiMatch.tsv
@@ -41,7 +54,11 @@ def pairWiseComparison(listFiles,listPartID):
 #Directory to phase must not contain the final /
 #this function will also extract the ID of the participants
 def readInFiles(directoryToPhase):
-    fileList = sorted(glob.glob(directoryToPhase + "/P?_*multiMatch.tsv"))
+    if(not os.path.exists(directoryToPhase)):
+        print("Error: " + directoryToPhase + " does not exist")
+        exit(1)
+    
+    fileList = sorted(glob.glob(directoryToPhase + "/P?*multiMatch.tsv"))
     idList = list()
     for curPath in fileList:
         curName = os.path.basename(curPath)
@@ -65,12 +82,10 @@ def createMultiCSV(directoryToPhase, outputName,outputPath="."):
 
 
 
-    
-
 
 
 def main():
-    createMultiCSV(".","Com_line_not_implemented")
+    createMultiCSV("./Bug1_Output/Phase1","B1P1_COOMatrix")
 
 
 
