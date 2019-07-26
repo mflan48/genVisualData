@@ -1,0 +1,16 @@
+#Ignore the data for participants
+processed_data/
+
+#Ignore the data for pilots
+Pilots/
+
+#Ignore the output for bugs1 and two for now
+Bug1_Output/
+Bug2_Output/
+
+#Ingore helper scripts
+MoveFiles.sh
+tempScript.py
+
+#Ignore the .vscode
+.vscode/
