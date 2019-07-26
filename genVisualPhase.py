@@ -70,16 +70,13 @@ def createFuncToColor(pathToFile):
         print("Error: Could not find file " + pathToFile)
         exit(1)
 
-def createScatter(combinedDF,timeCol="fix_time",interestCol="AOI",removeWhite = True):
-    #assert that timeCol and interestCol are in combinedDF
-    if(not timeCol in combinedDF.columns or not interestCol in combinedDF.columns):
+def createScatter(phaseDF,timeCol="fix_time",interestCol="AOI"):
+    #assert that timeCol and interestCol are in phaseDF
+    if(not timeCol in phaseDF.columns or not interestCol in phaseDF.columns):
         print("Error: Either " + timeCol + " or " + interestCol + " does not exist in the combined")
         exit(1)
     
-    #remove the whitespace
-    scatterDF = combinedDF.copy()
-    if(removeWhite):
-        scatterDF = scatterDF[scatterDF["AOI"] != -1]
+    scatterDF = phaseDF.copy()
     
     #firstTime = convertTimeStamp(str(scatterDF[timeCol].iloc[0]))
     #scatterDF[timeCol] = scatterDF[timeCol].apply(lambda x: convertTimeStamp(str(x),firstTime))
@@ -88,17 +85,14 @@ def createScatter(combinedDF,timeCol="fix_time",interestCol="AOI",removeWhite = 
     scatterDF = scatterDF[[timeCol,interestCol]]
     return(scatterDF)
 
-def createAlpscarf(combinedDF,partName,durationCol="fix_dur",interestCol = "function",removeWhite = True):
+def createAlpscarf(phaseDF,partName,durationCol="fix_dur",interestCol = "function"):
 
-    #assert that timeCol and interestCol are in combinedDF
-    if(not durationCol in combinedDF.columns or not interestCol in combinedDF.columns):
+    #assert that timeCol and interestCol are in phaseDF
+    if(not durationCol in phaseDF.columns or not interestCol in phaseDF.columns):
         print("Error: Either " + durationCol + " or " + interestCol + " does not exist in the combined")
         exit(1)
     
-    #Remove the whitespace
-    alpDF = combinedDF.copy()
-    if(removeWhite):
-        alpDF = alpDF[alpDF["AOI"] != -1]
+    alpDF = phaseDF.copy()
     
     #Get the duration and the column of interest
     alpDF = alpDF[[durationCol,interestCol]]
@@ -119,19 +113,15 @@ def createAlpscarf(combinedDF,partName,durationCol="fix_dur",interestCol = "func
 
     return(alpDF)
 
-def createRadial(combinedDF,partName,interestCol="function",stimulusCol="which_file",durationCol="fix_dur",removeWhite = True):
+def createRadial(phaseDF,partName,interestCol="function",stimulusCol="which_file",durationCol="fix_dur"):
     
-    #Ensure that all the columns exist within combinedDF
-    if(not (interestCol in combinedDF.columns and stimulusCol in combinedDF.columns and durationCol in combinedDF.columns)):
-        print("Error: One or more of the following does not exist in the combinedDF")
+    #Ensure that all the columns exist within phaseDF
+    if(not (interestCol in phaseDF.columns and stimulusCol in phaseDF.columns and durationCol in phaseDF.columns)):
+        print("Error: One or more of the following does not exist in the phaseDF")
         print(interestCol + " " + stimulusCol + " " + durationCol)
         exit(1)
     
-    radialDF = combinedDF.copy()
-
-    #Remove the whitespace from the combinedDF
-    if(removeWhite):
-        radialDF = radialDF[radialDF["AOI"] != -1]
+    radialDF = phaseDF.copy()
 
     #Make sure that interestCol and stimulusCol are not the same. if they are throw an error
     if(interestCol == stimulusCol):
@@ -152,16 +142,16 @@ def createRadial(combinedDF,partName,interestCol="function",stimulusCol="which_f
 #funcToColor is a dicionary {functionaName:color} OR {aoi:color}
 #if funcToColor is {aoi:color} it must be the ADJUSTED AOI numbers
 #The color must be in the right format (must be "#454545")
-def createColors(combinedDF,funcToColor,interestCol="function"):
+def createColors(phaseDF,funcToColor,interestCol="function"):
     
     #Check if the columns exist in the combined DF
-    if(not interestCol in combinedDF.columns):
-        print("Error: " + interestCol + " does not exist in the combinedDF")
+    if(not interestCol in phaseDF.columns):
+        print("Error: " + interestCol + " does not exist in the phaseDF")
         exit(1)
     
 
     #get all of the unique values interestCol values in the data frame,
-    interestVals = sorted(combinedDF[interestCol].unique())
+    interestVals = sorted(phaseDF[interestCol].unique())
 
     expectedOrder = list(range(1,len(interestVals)+1))
     colorsVect = []
@@ -171,7 +161,7 @@ def createColors(combinedDF,funcToColor,interestCol="function"):
         if(str(curVal) in funcToColor):
             colorsVect.append(funcToColor[curVal])
         else:
-            print("Error: " + str(curVal) + " was in the " + str(interestCol) + " of the combinedDF but did not exist in the funcToColor dicionary")
+            print("Error: " + str(curVal) + " was in the " + str(interestCol) + " of the phaseDF but did not exist in the funcToColor dicionary")
             print("Double check the file that is used to generate the funcToColor dictionary to ensure that all functions/AOI's are accounted for")
             exit(1)
 
@@ -182,10 +172,8 @@ def createColors(combinedDF,funcToColor,interestCol="function"):
     colorsDF["color"] = colorsVect
     return(colorsDF)
 
-def createMultiMatch(combinedDF,durationCol="fix_dur",pixXCol="pixel_x",pixYCol="pixel_y",removeWhite=True):
-    multiDF = combinedDF.copy()
-    if(removeWhite):
-        multiDF = multiDF[multiDF["AOI"]!=-1]
+def createMultiMatch(phaseDF,durationCol="fix_dur",pixXCol="pixel_x",pixYCol="pixel_y"):
+    multiDF = phaseDF.copy()
     multiDF = multiDF[[pixXCol,pixYCol,durationCol]]
     multiDF.loc[:,durationCol] = multiDF.loc[:,durationCol]*(10**-3)
     multiDF = multiDF.rename(index=str,columns={durationCol:"duration",pixXCol:"start_x",pixYCol:"start_y"})
@@ -236,15 +224,25 @@ def createSinglePhase(phaseDF,outputPath,partID,phaseNumber,isColors=None,isAlpS
 
 #The mergedDF represents a dataframe that has all of the times converted
 #This will create three data frames that have an extra column that indicates what phase they are on
-def parseMergeCSV(mergedDF,endPhase0,endPhase1,timeCol="fix_time"):
+def parseMergeCSV(mergedDF,endPhase0,endPhase1,timeCol="fix_time",entityCol="entity",removeWhite=True,removeNONE=False):
     phaseZeroDF = None
     phaseOneDF = None
     phaseTwoDF = None
 
-
     phaseZeroDF = mergedDF.loc[mergedDF[timeCol] < endPhase0].copy()
     phaseOneDF = mergedDF.loc[ (endPhase0 <= mergedDF[timeCol]) & (mergedDF[timeCol] < endPhase1)].copy()
     phaseTwoDF = mergedDF.loc[endPhase1 <= mergedDF[timeCol]].copy()
+
+    if(removeWhite):
+        phaseZeroDF = phaseZeroDF[phaseZeroDF["AOI"]!=-1]
+        phaseOneDF = phaseOneDF[phaseOneDF["AOI"]!=-1]
+        phaseTwoDF = phaseTwoDF[phaseTwoDF["AOI"]!=-1]
+    if(removeNONE):
+        phaseZeroDF = phaseZeroDF[phaseZeroDF[entityCol]!="NONE"]
+        phaseOneDF = phaseOneDF[phaseOneDF[entityCol]!="NONE"]
+        phaseTwoDF = phaseTwoDF[phaseTwoDF[entityCol]!="NONE"]
+
+
     phaseZeroDF["Phase"] = "Phase0"
     phaseOneDF["Phase"] = "Phase1"
     phaseTwoDF["Phase"] = "Phase2"
@@ -269,7 +267,17 @@ def createMergeDF(csvFile,timeCol="fix_time",durCol="fix_dur"):
     .
     .
 """
-def createTransMatrix(phaseDF, partID,phaseNum,entityCol="entity", allEntity=["Member_Variable","Comment","Bug_Report","Class_Signature","Method_Body","Method_Signature","NONE"]):
+def createTransMatrix(phaseDF, partID,phaseNum,entityCol=None, allEntity=None):
+    
+    #if any of the variables are passed in None, set the default values
+    if(entityCol==None):
+        entityCol="entity"
+    if(allEntity==None):
+        allEntity=["Member_Variable","Comment","Bug_Report","Class_Signature","Method_Body","Method_Signature","NONE"]
+    
+    if(not entityCol in phaseDF.columns):
+        print("Error: The passed in entity column " + entityCol + " does not exist in the phaseDF")
+        exit(1)
     #Get a list of all of the entities in the phaseDF
     listEntity = phaseDF.copy()[entityCol].tolist()
     colEntities = ["ParticipantID","Phase","Source"] + allEntity
@@ -297,7 +305,23 @@ def createTransMatrix(phaseDF, partID,phaseNum,entityCol="entity", allEntity=["M
     return(toReturnDF)
 
 #Returns dictionary of percentages of time spend in the values in the wantEntity lsit
-def createDistMatrix(phaseDF,partID,phaseNum,entityCol="entity",durCol="fix_dur",wantEntity=["Member_Variable","Comment","Bug_Report","Class_Signature","Method_Body","Method_Signature","NONE"]):
+def createDistMatrix(phaseDF,partID,phaseNum,entityCol=None,durCol=None,wantEntity=None):
+    
+    #If non is passed in for any of the default values, update them
+    if(entityCol==None):
+        entityCol = "entity"
+    if(durCol==None):
+        durCol="fix_dur"
+    if(wantEntity==None):
+        wantEntity=["Member_Variable","Comment","Bug_Report","Class_Signature","Method_Body","Method_Signature","NONE"]
+
+    if(not entityCol in phaseDF.columns):
+        print("Error: The passed in entity column " + entityCol + " does not exist in the phaseDF")
+        exit(1)
+    if(not durCol in phaseDF.columns):
+        print("Error: The passed in durCol " + durCol + " does not exist in phaseDF")
+        exit(1)
+    
     #Group the phaseDF by the entity columns
     groups = phaseDF.copy().groupby(entityCol)
 
@@ -320,12 +344,6 @@ def createDistMatrix(phaseDF,partID,phaseNum,entityCol="entity",durCol="fix_dur"
     myDict["Phase"]=str(phaseNum)
     toReturn = toReturn.append(myDict,ignore_index=True)
     return(toReturn)
-
-
-
-    
-
-
 
 
 def main():
@@ -475,9 +493,9 @@ def main():
     #Create the mergedDF by reading in the file from the input path
     mergedDF = createMergeDF(inputPath)
     phase0,phase1,phase2 = parseMergeCSV(mergedDF,endPhase0 = endTime0,endPhase1 = endTime1)
-    createPhase(phase0,zeroDir,partID,0,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
-    createPhase(phase1,oneDir,partID,1,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
-    createPhase(phase2,twoDir,partID,2,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
+    createSinglePhase(phase0,zeroDir,partID,0,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
+    createSinglePhase(phase1,oneDir,partID,1,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
+    createSinglePhase(phase2,twoDir,partID,2,isColors=colorsFile,isAlpScarf=alpScarfAOI,isRadial=radialInterest,isStimulus=radialStimulus)
 
 
 def modPathName(pathName):
