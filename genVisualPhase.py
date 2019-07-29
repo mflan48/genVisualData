@@ -224,7 +224,7 @@ def createSinglePhase(phaseDF,outputPath,partID,phaseNumber,isColors=None,isAlpS
 
 #The mergedDF represents a dataframe that has all of the times converted
 #This will create three data frames that have an extra column that indicates what phase they are on
-def parseMergeCSV(mergedDF,endPhase0,endPhase1,timeCol="fix_time",entityCol="entity",removeWhite=True,removeNONE=False):
+def parseMergeCSV(mergedDF,endPhase0,endPhase1,timeCol="fix_time",entityCol="entity",removeWhite=True,removeNONE=True):
     phaseZeroDF = None
     phaseOneDF = None
     phaseTwoDF = None

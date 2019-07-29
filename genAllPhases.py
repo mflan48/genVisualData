@@ -62,19 +62,69 @@ def runAllParticipants(listDataFiles,listTimes,listID,listOut,phaseDict,transDic
     distMatrix.to_csv("DistribtuionMatrix.csv",index=False)
 
 
+def getDictBug(processedPath,globQuery):
+    allPaths = sorted(glob.glob(processedPath + "/" + globQuery,recursive=True))
+
+    
+
 
 def main():
-    listDataFiles = ["processed_data/P-101/bug2/merged_data.csv","processed_data/P-102/bug2/merged_data.csv","processed_data/P-103/bug2/merged_data.csv"
-                    ,"processed_data/P-104/bug2/merged_data.csv","processed_data/P-105/bug2/merged_data.csv","processed_data/P-201/bug2/merged_data.csv"]
-    listTimes = [(9999999999988,9999999999999),(9999999999988,9999999999999),(9999999999988,9999999999999)
-                ,(9999999999988,9999999999999),(9999999999988,9999999999999),(9999999999988,9999999999999)]
-    listID = ["P-101","P-102","P-103","P-104","P-105","P-201"]
-    listOut=["./Bug2_Output"]*6
+
+    largeTime = 9999999999999
+    #getDictBug("./processed_data","**/*.csv")
+    #exit(1)
+    #dictIDtoBug1 = {}
+    #dictIDtoBug2 = {}
+    #dictIDtoTimes = {}
+
+    listDataFiles = ["processed_data/P102/bug1/merged_data.csv","processed_data/P103/bug1/merged_data.csv","processed_data/P105/bug1/merged_data.csv",
+                    "processed_data/P106/bug1/merged_data.csv","processed_data/P201/bug1/merged_data.csv"
+                    ,"processed_data/P202/bug1/merged_data.csv","processed_data/P203/bug1/merged_data.csv","processed_data/P204/bug1/merged_data.csv"
+                    ,"processed_data/P205/bug1/merged_data.csv","processed_data/P206/bug1/merged_data.csv","processed_data/P207/bug1/merged_data.csv"
+                    ,"processed_data/P208/bug1/merged_data.csv","processed_data/P301/bug1/merged_data.csv"]
+    listTimes = [ (1563562294634,1563562897067), (1563826245007,1563826812264), (1563976958363, largeTime) 
+                , (1564063779601,1564064007823), (1563464280705,1563464828802)
+                , (1563553936859,1563554256514), (1563986919996,1563987376814), (1563902610406,1563902773703)
+                , (1563893868347, largeTime), (1564006098289,1564006333456), (1564076425290, 1564076670887)
+                , (1564083265380, 1564083358841), (1564087432075, 1564087668731)]
+
+
+
+
+    listID = ["P102","P103","P105","P106","P201","P202","P203","P204","P205","P206","P207","P208","P301"]
+    listOut=["./Bug1_Output"]*13
     phaseDict={"isRadial":"entity","isAlpScarf":"entity"}
     transDict={}
     distDict={}
 
     runAllParticipants(listDataFiles,listTimes,listID,listOut,phaseDict,transDict,distDict)
+
+
+#listDataFiles,listTimes,listID,listOut
+class PartTrial:
+
+    def __init__(self,pathToData,pathToOutput,timeTuple,ID):
+        self.pathToData = pathToData
+        self.pathToOutput = pathToOutput
+        self.timeTuple = timeTuple
+        self.ID = ID
+    
+    def runParticipant(self,transDF,distDF,phaseDict,transDict,distDict):
+        mergedDF = createMergeDF(self.pathToData)
+        phase1,phase2,phase3 = parseMergeCSV(mergedDF, endPhase0=self.timeTuple[0], endPhase1=self.timeTuple[1])
+        createAllPhases(phase1, phase2, phase3, self.ID, self.pathToOutput, **phaseDict)
+        temp = createAllTransMatrix(phase1, phase2, phase3, self.ID, **transDict)
+        temp2 = createAllDistMatrix(phase1, phase2, phase3, self.ID, **distDict)
+        updateTransDF = pd.concat([transDF,temp],ignore_index=True)
+        updateDistDF = pd.concat([distDF,temp2],ignore_index=True)
+        return(updateTransDF,updateDistDF)
+
+
+
+
+
+
+
 
 if __name__ == "__main__":
     main()

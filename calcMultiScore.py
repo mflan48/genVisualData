@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import glob
 import multimatch_gaze as mGaze
+from tqdm import tqdm
 
 def modPathName(pathName):
     return(pathName if pathName[len(pathName)-1] != "/" else pathName[0:len(pathName)-1])
@@ -17,37 +18,77 @@ def getSingleComparision(pathToFile1,pathToFile2,inSize = [1920,1080]):
     fix_vector2 = np.recfromcsv(pathToFile2,delimiter='\t'
         ,dtype={'names':('start_x','start_y','duration'),'formats':('f8','f8','f8')})
     
-    #Return them as a list
-    return(mGaze.docomparison(fix_vector1,fix_vector2,screensize=inSize))
+    #Return them as a dictionary
+    values = mGaze.docomparison(fix_vector1,fix_vector2,screensize=inSize)
+    toReturn = {}
+    toReturn["Shape"] = values[0]
+    toReturn["Length"] = values[1]
+    toReturn["Direction"]=values[2]
+    toReturn["Position"]=values[3]
+    toReturn["Duration"]=values[4]
+
+    return(toReturn)
     
 
 #ListFiles and listPartID are parell vectors. That is, the first file in listFiles is the one for the first entry in listPartID
 #this would need to be called on each phase
-def pairWiseComparison(listFiles,listPartID):
+#cacheDF is a dataframe of already computed multimatch scores
+def pairWiseComparison(listFiles,listPartID,cacheDF):
+
+    
+    header = ["Part1_ID","Part2_ID","Shape","Length","Direction","Position","Duration"]
+    toReturnDF = pd.DataFrame(columns = header)
+    listAlreadyComp = []
+    if(cacheDF.empty != True):
+        toReturnDF = cacheDF.copy()
+
+        #Get a list of tuples of all of the participants that have went already
+        groups = cacheDF.groupby(["Part1_ID","Part2_ID"])
+        for name,group in groups:
+            pair1 = name[0],name[1]
+            pair2 = name[1],name[0]
+            listAlreadyComp.append(pair1)
+            listAlreadyComp.append(pair2)
+
+
+
+    #toReturnDF = cacheDF.copy()
+
+    
     if(len(listFiles) != len(listPartID)):
         print("Error: The two list for pairWiseComparison are not the same length")
         return
-    header = ["Part1_ID","Part2_ID","Shape","Length","Direction","Position","Duration"]
-    arr2d = []
-    for i in range(0,len(listPartID)):
+
+
+    for i in tqdm(range(0,len(listPartID))):
         #check if multimatch file for part i is valie
         with open(listFiles[i],"r") as file1:
             if(len(file1.readlines()) == 1):
                 print("Skipping participant " +str(listPartID[i]) +" because their multimatch.tsv is empty")
                 continue
 
-        for j in range(i+1,len(listPartID)):
+        for j in tqdm(range(i+1,len(listPartID))):
             #check if the multimatch file for part j  participants is valid
             with open(listFiles[j],"r") as file2:
                 if(len(file2.readlines()) == 1):
                     print("Skipping participant " +str(listPartID[j]) +" because their multimatch.tsv is empty")
                     continue
             
-            print("Doing comparison for participant " + str(listPartID[i]) + " and " + str(listPartID[j]))
-            toAddList = [listPartID[i],listPartID[j]] + getSingleComparision(listFiles[i],listFiles[j])
-            arr2d.append(toAddList)
-    
-    return(pd.DataFrame(arr2d,columns=header))
+            toAddDF = pd.DataFrame(columns = header)
+            #Create a temp pair of the participants and see if it already exist in listAlready
+            tempPair = listPartID[i],listPartID[j]
+            if(tempPair in listAlreadyComp):
+                print("Skipping comparision between " + tempPair[0] + " and " + tempPair[1] + " because we have already done it" )
+                continue
+            else:
+                print("Doing comparison for participant " + str(listPartID[i]) + " and " + str(listPartID[j]))
+                dictToAdd = getSingleComparision(listFiles[i],listFiles[j])
+                dictToAdd["Part1_ID"] = listPartID[i]
+                dictToAdd["Part2_ID"] = listPartID[j]
+                toAddDF = toAddDF.append(dictToAdd,ignore_index=True)
+                toReturnDF = pd.concat([toReturnDF,toAddDF],ignore_index=True)
+    toReturnDF = toReturnDF.sort_values(by=["Part1_ID","Part2_ID"])
+    return(toReturnDF)
     
 #The multimatch files need to have format Pid_ANYTHING IN BETWEEN_multiMatch.tsv
 #these files must be in a directory that represents one of the phases we want to conduct the multimatch analysis on
@@ -74,9 +115,11 @@ def createMultiCSV(directoryToPhase, outputName,outputPath="."):
     outputName = modCSVName(outputName)
     outputPath = modPathName(outputPath)
 
+    #temp1 = pd.read_csv("TestMultiWO_105_201.csv")
+    temp1 = pd.DataFrame()
     #create the csv
     listFile, listID = readInFiles(directoryToPhase)
-    finalDF = pairWiseComparison(listFile,listID)
+    finalDF = pairWiseComparison(listFile,listID,temp1)
     finalDF.to_csv(outputPath + "/" + outputName,index=False)
     return
 
@@ -85,7 +128,10 @@ def createMultiCSV(directoryToPhase, outputName,outputPath="."):
 
 
 def main():
-    createMultiCSV("./Bug1_Output/Phase1","B1P1_COOMatrix")
+    createMultiCSV("./Bug1_Output/Phase1","Bug1_Phase1_MultiComp")
+    createMultiCSV("./Bug1_Output/Phase2","Bug1_Phase2_MultiComp")
+    createMultiCSV("./Bug1_Output/Phase3","Bug1_Phase3_MultiComp")
+
 
 
 
