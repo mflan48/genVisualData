@@ -1,0 +1,8 @@
+Entity-Color
+Bug_Report-97FF00
+Method_Body-0000FF
+Member_Variable-055000
+Comment-FF0000
+NONE-B29800
+Method_Signature-9B00FF
+Class_Signature-FFA600

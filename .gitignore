@@ -20,3 +20,7 @@ tempScript.py
 
 #Ignore pycache
 __pycache__
+
+#Ignore testMultiMatch
+testMultiMatch/
+
