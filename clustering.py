@@ -6,6 +6,13 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import AffinityPropagation, SpectralClustering
 
+DEFAULT_MEASURE = lambda row: sum([float(row[name]) for name in
+        ['Shape', 'Length', 'Direction', 'Position', 'Duration']])
+
+LENGTH_MEASURE = lambda row: float(row['Length'])
+POSITION_MEASURE = lambda row: float(row['Position'])
+DURATION_MEASURE = lambda row: float(row['Duration'])
+
 """
 REQUIRES: path_to_file is the relative path to a CSV file
     containing fields for subject 1, subject 2 and the scores 
@@ -14,8 +21,18 @@ REQUIRES: path_to_file is the relative path to a CSV file
 EFFECT: Returns a dataframe representing the CSV.
 """
 def ingest_data(path_to_file):
-    return pd.DataFrame.from_csv(path_to_file)
+    return pd.read_csv(path_to_file)
 
+
+"""
+EFFECT: Processes the two participant columns and returns 
+    a list of unique participants
+"""
+def get_unique_participants(data):
+    participants = set(data['Part1_ID'])
+    participants.update(set(data['Part2_ID']))
+
+    return list(participants)
 
 """
 REQUIRES: 
@@ -32,7 +49,8 @@ REQUIRES:
 
 EFFECT: Creates a clustering of scanpaths based on similarity.
 """
-def create_participant_cluster(which_algorithm, data, subject_order, measure):
+def create_participant_cluster(which_algorithm, data, measure):
+    subject_order = get_unique_participants(data)
     affinity = create_affinity_matrix(data, subject_order, measure)
 
     if which_algorithm == "AffinityPropagation":
@@ -47,7 +65,7 @@ def create_participant_cluster(which_algorithm, data, subject_order, measure):
             "'SpectralClustering'."
         )
 
-    return cluster.labels_
+    return dict(zip(subject_order, cluster.labels_))
 
 def create_affinity_matrix(data, subject_order, measure):
     size = len(subject_order)
@@ -61,9 +79,13 @@ def create_affinity_matrix(data, subject_order, measure):
 
             # Get the row that matches subjects i and j
             s_i, s_j = subject_order[i], subject_order[j]
-            row = data[data.s1 == s_i & data.s2 == s_j]
+            row = data[(data.Part1_ID == s_i) & (data.Part2_ID == s_j)]
+
             if len(row) == 0:
-                row = data[data.s2 == s_i & data.s1 == s_j]
+                row = data[(data.Part2_ID == s_i) & (data.Part1_ID == s_j)]
+
+            if len(row) == 0:
+                raise LookupError("Did not find comparison between "+s_i+" and "+s_j)
 
             affinity[i][j] = affinity[j][i] = measure(row)
 

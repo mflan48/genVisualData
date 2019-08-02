@@ -2,11 +2,18 @@
 A set of calculations of AFD and other typical & extendable eye-tracking metrics
 """
 
-import pandas as pd
 import numpy as np
-import subprocess
 from math import sqrt
-from scipy.io import savemat
+
+BUG1_TARGETS = \
+    ["MineSweeperGui.updateCheat",
+     "MineSweeperGui.updateCheat:Comment",
+     "MineSweeperGui.resetButtons",
+     "MineSweeperGui.resetButtons:Comment"]
+
+BUG2_TARGETS = \
+    ["MineSweeperBoard.generateMines(long Space)",
+     "MineSweeperBoard.generateMines(long Space):Comment"]
 
 """
 A calculation of AFD (in ms) for a DataFrame of the same form as createCombinedDF.
@@ -93,101 +100,7 @@ def detect_on_target_focus(data, target_functions, num_required):
             found_loc = i
             break
 
-    return times[found_loc]
-
-"""
------------- The following is likely to be deprecated. ---------------
-"""
-
-"""
-Convert the dataframe to a time series and resample it.
-
-time_step_size MUST be a valid pandas frequency string:
-    https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
-"""
-def resample(data, time_step_size):
-    return data.resample(time_step_size).ffill()
-
-
-"""
-Transforms a pair of string sequences into a pair of integer sequences,
-    by mapping each unique string to a number.
-"""
-def to_numeric_codes(seq1, seq2):
-    seq_combined = seq1 + seq2
-    str_to_num = dict()
-    count = 1
-
-    for item in seq_combined:
-        if item not in str_to_num.keys():
-            str_to_num[item] = count
-            count += 1
-
-    num_seq1, num_seq2 = list(), list()
-
-    for item in seq1:
-        num_seq1.append(str_to_num[item])
-
-    for item in seq2:
-        num_seq2.append(str_to_num[item])
-
-    return num_seq1, num_seq2
-
-
-"""
-Creates a combined pandas DataFrame from a set of CSV files,
-excluding the 'AOI' column.
-
-Input: a list of CSV files
-Output: a combined DataFrame with (at least) the following fields:
-    ['fix_col', 'fix_line', 'fix_time', 'fix_dur' (milliseconds), 'which_file', 'function']
-"""
-def create_functions_df(csv_files):
-    series = [pd.read_csv(
-                  csv_file, parse_dates=["fix_time"], index_col=["fix_time"]
-              )
-              for csv_file in csv_files]
-
-    combined_series = pd.concat(series, ignore_index=False)
-
-    combined_series = combined_series.sort_index()
-
-    return combined_series
-
-
-"""
-Input: Two dataframes containing fixation data.
-
-Effect: Resample the data and run the wrapper for MATLAB nwalign.
-
-Note: time_step_size MUST be a valid pandas frequency string:
-    https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects
-    
-This only works on Linux at the moment.
-"""
-def scanmatch(data_1, data_2, time_step_size):
-    # Create a pandas time series and resample
-    data_1 = resample(data_1, time_step_size)
-    data_2 = resample(data_2, time_step_size)
-
-    string_seq_1 = list(data_1["function"])
-    string_seq_2 = list(data_2["function"])
-
-    int_seq_1, int_seq_2 = to_numeric_codes(string_seq_1, string_seq_2)
-
-    # Save integer sequences to a .MAT file as seq1 and seq2
-    savemat(
-        "sequences.mat",
-        {
-            "seq1": int_seq_1,
-            "seq2": int_seq_2
-        }
-    )
-
-    # Run compare_paths.m
-    result = subprocess.check_output(
-        ['matlab', '-wait', '-nosplash', '-nodesktop', '-nodisplay', '-nojvm',
-         '-r', "wrap_nwAlgo"]
-    )
-
-    return float(result)
+    if found_loc is not None:
+        return times[found_loc]
+    else:
+        return "Pattern not found!"
