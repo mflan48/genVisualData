@@ -17,10 +17,14 @@ tempScript.py
 
 #ignore the .DS_Store
 .DS_Store/
+.DS_Store
 
 #Ignore pycache
 __pycache__
 
 #Ignore testMultiMatch
-testMultiMatch/
+test/
+
+#Ignore Multimatch Results
+MultiMatch_Results/
 

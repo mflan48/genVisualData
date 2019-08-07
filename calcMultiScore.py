@@ -63,6 +63,7 @@ def pairWiseComparison2(listFiles,listPartID,cacheDF,outputPath):
 
 
     for i in range(0,len(listPartID)):
+        sys.stdout.flush()
         #check if multimatch file for part i is valie
         with open(listFiles[i],"r") as file1:
             if(len(file1.readlines()) == 1):
@@ -70,6 +71,7 @@ def pairWiseComparison2(listFiles,listPartID,cacheDF,outputPath):
                 continue
 
         for j in range(i+1,len(listPartID)):
+            sys.stdout.flush()
             #check if the multimatch file for part j  participants is valid
             with open(listFiles[j],"r") as file2:
                 if(len(file2.readlines()) == 1):
@@ -98,7 +100,7 @@ def pairWiseComparison2(listFiles,listPartID,cacheDF,outputPath):
             toReturnDF.to_csv(outputPath,index=False)
 
     toReturnDF = toReturnDF.sort_values(by=[part1Col,part2Col])
-    toReturnDF.to_csv(outputPath)
+    toReturnDF.to_csv(outputPath,index=False)
     return  
 
 
@@ -125,8 +127,8 @@ def createMultiCSV2(pathToPhase,outputPath,pathToCached):
 
     cachedDF = None
     try:
-        print("Found file " + str(pathToCached) + " and will append to the contents of it")
         cachedDF = pd.read_csv(pathToCached)
+        print("Found file " + str(pathToCached) + " and will append to the contents of it")
     except (FileNotFoundError, ValueError):
         print("Creating empty dataframe and running pairWiseComparison2")
         cachedDF = pd.DataFrame()
@@ -157,6 +159,7 @@ def main():
         cachedName = argv[3]
 
     createMultiCSV2(dirToTSV,outName,cachedName)
+    print("DONE")
 
 
 
