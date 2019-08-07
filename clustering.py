@@ -6,12 +6,19 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import AffinityPropagation, SpectralClustering
 
-DEFAULT_MEASURE = lambda row: sum([float(row[name]) for name in
-        ['Shape', 'Length', 'Direction', 'Position', 'Duration']])
 
-LENGTH_MEASURE = lambda row: float(row['Length'])
-POSITION_MEASURE = lambda row: float(row['Position'])
-DURATION_MEASURE = lambda row: float(row['Duration'])
+def default_measure(row): return sum([float(row[name]) for name in
+                                     ['Shape', 'Length', 'Direction', 'Position', 'Duration']])
+
+
+def length_measure(row): return float(row['Length'])
+
+
+def position_measure(row): return float(row['Position'])
+
+
+def duration_measure(row): return float(row['Duration'])
+
 
 """
 REQUIRES: path_to_file is the relative path to a CSV file
@@ -20,6 +27,8 @@ REQUIRES: path_to_file is the relative path to a CSV file
 
 EFFECT: Returns a dataframe representing the CSV.
 """
+
+
 def ingest_data(path_to_file):
     return pd.read_csv(path_to_file)
 
@@ -28,11 +37,14 @@ def ingest_data(path_to_file):
 EFFECT: Processes the two participant columns and returns 
     a list of unique participants
 """
+
+
 def get_unique_participants(data):
     participants = set(data['Part1_ID'])
     participants.update(set(data['Part2_ID']))
 
     return list(participants)
+
 
 """
 REQUIRES: 
@@ -49,6 +61,8 @@ REQUIRES:
 
 EFFECT: Creates a clustering of scanpaths based on similarity.
 """
+
+
 def create_participant_cluster(which_algorithm, data, measure):
     subject_order = get_unique_participants(data)
     affinity = create_affinity_matrix(data, subject_order, measure)
@@ -66,6 +80,7 @@ def create_participant_cluster(which_algorithm, data, measure):
         )
 
     return dict(zip(subject_order, cluster.labels_))
+
 
 def create_affinity_matrix(data, subject_order, measure):
     size = len(subject_order)
