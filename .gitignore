@@ -28,3 +28,5 @@ test/
 #Ignore Multimatch Results
 MultiMatch_Results/
 
+OUT1/
+OUT2/
