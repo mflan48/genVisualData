@@ -6,7 +6,6 @@ import os
 import glob
 import sys
 import getopt
-from collections import defaultdict
 
 """
     Convert a timestamp into the amount of milliseconds passed since a certain starting value
@@ -28,7 +27,7 @@ def convertTimeStamp(timeStamp,startValue = 0):
     myStrX: int or string :the number to be converted to AOI_
 
     Return:
-    AOI_
+    AOI_myStrX
 """
 def convertAOI(myStrX):
     return ("AOI_" + str(myStrX))
@@ -40,7 +39,7 @@ def convertAOI(myStrX):
     myColor: str :a string of the hex color
 
     Return:
-    The hex color in the right format
+    The hex color in the right format for the colors.csv
 """
 def convertColor(myColor):
     return ( ("\"" + "#"+str(myColor) + "\"" ) if myColor[0] != '#' else ("\"" + str(myColor) + "\"") )
@@ -50,7 +49,6 @@ def convertColor(myColor):
 def getFileNameFromPath(filePath):
     #split path to just get the file then just get the file.java
     return(os.path.split(filePath)[1].split(".")[0] + ".java")
-        #fileName.split(".")[0] + ".java")
 
 #File must be of format {functionName-color}
 def createFuncToColor(pathToFile):
@@ -77,10 +75,6 @@ def createScatter(phaseDF,timeCol="fix_time",interestCol="AOI"):
         exit(1)
     
     scatterDF = phaseDF.copy()
-    
-    #firstTime = convertTimeStamp(str(scatterDF[timeCol].iloc[0]))
-    #scatterDF[timeCol] = scatterDF[timeCol].apply(lambda x: convertTimeStamp(str(x),firstTime))
-
     #only get the fix_time and AOI
     scatterDF = scatterDF[[timeCol,interestCol]]
     return(scatterDF)
@@ -336,7 +330,6 @@ def createDistMatrix(phaseDF,partID,phaseNum,entityCol=None,durCol=None,wantEnti
         totalTime += float(curSum)
         entityDict[name] = curSum
 
-    
     toReturn = pd.DataFrame(columns=["ParticipantID","Phase"]+wantEntity)
     myDict = {}
     for key in wantEntity:
@@ -458,7 +451,6 @@ def main():
             print("Participant ID must be an integer")
             exit(1)
     
-
     #Modify the ID to be of form Pid
     partID = "P" + str(partID)
 
@@ -492,7 +484,6 @@ def main():
     zeroDir = modPathName(zeroDir)
     oneDir = modPathName(oneDir)
     twoDir = modPathName(twoDir)
-
 
     #Create the mergedDF by reading in the file from the input path
     mergedDF = createMergeDF(inputPath)
