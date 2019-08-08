@@ -9,7 +9,7 @@ import csv
 
 def main():
 
-    phaseDict={"isRadial":"entity","isAlpScarf":"entity","isColors":"mapEntityColor.txt"}
+    phaseDict={"isRadial":"entity","isAlpScarf":"entity","isStimulus":"Phase","isColors":"mapEntityColor.txt"}
     transDict={}
     distDict={}
 
@@ -108,6 +108,7 @@ class Experiment:
                     listBug2.append(tempPart)
                 else:
                     print("THIS SHOULD NEVER HAPPEN")
+                    exit(1)
         return(listBug1,listBug2)
 
     def runAllParticipants(self):
@@ -172,59 +173,5 @@ class Experiment:
 
 
 
-
-
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-"""
-
-    largeTime = 9999999999999
-
-    part102 = PartTrial(pathToData="processed_data/P102/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-        ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1563562294634,1563562897067),ID="P102")
-
-    part103 = PartTrial(pathToData="processed_data/P103/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-        ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1563826245007,1563826812264),ID="P103")
-
-    part105 = PartTrial(pathToData="processed_data/P105/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-        ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1563976958363, largeTime),ID="P105")
-
-    part106 = PartTrial(pathToData="processed_data/P106/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-        ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1564063779601,1564064007823),ID="P106")
-
-    part201 = PartTrial(pathToData="processed_data/P201/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-        ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1563464280705,1563464828802),ID="P201")
-
-    part202 = PartTrial(pathToData="processed_data/P202/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-        ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1563553936859,1563554256514),ID="P202")
-            
-    part203 = PartTrial(pathToData="processed_data/P203/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-        ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1563986919996,1563987376814),ID="P203")
-
-    part204 = PartTrial(pathToData="processed_data/P204/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-        ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1563902610406,1563902773703),ID="P204")
-
-    part205 = PartTrial(pathToData="processed_data/P205/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-        ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1563893868347, largeTime),ID="P205")
-
-    part206 = PartTrial(pathToData="processed_data/P206/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-        ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1564006098289,1564006333456),ID="P206")
-
-    part207 = PartTrial(pathToData="processed_data/P207/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-            ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1564076425290, 1564076670887),ID="P207")
-
-    part208 = PartTrial(pathToData="processed_data/P208/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-            ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1564083265380, 1564083358841),ID="P208")
-
-    part301 = PartTrial(pathToData="processed_data/P301/bug1/merged_data.csv",pathToOut1="./Bug1_Output/Phase1",pathToOut2="./Bug1_Output/Phase2"
-            ,pathToOut3="./Bug1_Output/Phase3",timeTuple=(1564087432075, 1564087668731),ID="P301")
-    
-
-    listPart = [part102,part103,part105,part106,part201,part202,part203,part204,part205,part206,part207,part208,part301]
-"""
