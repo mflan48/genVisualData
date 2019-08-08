@@ -2,6 +2,7 @@
 Cluster scanpaths with various algorithms from scikit-learn
 """
 
+import csv
 import numpy as np
 import pandas as pd
 from sklearn.cluster import AffinityPropagation, SpectralClustering
@@ -47,6 +48,130 @@ def get_unique_participants(data):
 
 
 """
+Evaluate the given clustering method's predictive ability.
+
+Note: clusters were done by phase/bug, so only clustering schemes with
+matching phase/bug pairs should be evaluated as a unit.
+
+Answer question:
+    In general, when we run the clustering algorithm, how "good" is it at
+    picking out two groups? The more groups are created, the worse
+"""
+def evaluate_clustering(cluster_data_file):
+    data = pd.read_csv(cluster_data_file)
+    data = data[data["Cluster Type"] == "Spectral Clustering"]
+
+    for bug in [1, 2]:
+        for phase in [1, 2, 3]:
+            print("Bug", bug, "Phase", phase)
+
+            cluster_data = data[(data["Bug Number"] == bug) &
+                                (data["Phase Number"] == phase)]
+
+            cluster_nums = data["Cluster Category"].unique()
+
+            # It is expected that clusters are numbered [0, 1].
+            assert(len(cluster_nums) == 2)
+
+
+
+
+
+"""
+Record metadata to the cluster information file
+"""
+
+
+def append_metadata(data_file, metadata_file, output_file):
+    metadata = pd.read_csv(metadata_file)
+    metadata_fields = ["Gender", "Group"]
+
+    with open(data_file, "r") as infile:
+        icsv = csv.DictReader(infile)
+
+        with open(output_file, "w", newline='') as ofile:
+            ocsv = csv.DictWriter(
+                ofile,
+                fieldnames=icsv.fieldnames+metadata_fields
+            )
+            ocsv.writeheader()
+
+            for row in icsv:
+                pid = row["PID"]
+                metadata_row = metadata[metadata.PID == pid]
+                gender = metadata_row.Gender.values[0]
+                group = metadata_row.Group.values[0]
+
+                out_row = dict(row)
+                out_row["Gender"] = gender
+                out_row["Group"] = group
+
+                ocsv.writerow(out_row)
+
+
+"""
+Record cluster information to a file
+"""
+
+
+def record_clusters(data_file_list, output_file_path):
+    fields = [
+        "PID",
+        "Bug Number",
+        "Phase Number",
+        "Cluster Type",
+        "Cluster Category"
+    ]
+
+    pid_clusters = dict()
+
+    for data_file in data_file_list:
+        bug_number = int(data_file.split("_")[0][1])
+        phase_number = int(data_file.split("_")[1][1])
+
+        data = ingest_data(data_file)
+
+        for pid in get_unique_participants(data):
+            if pid not in pid_clusters.keys():
+                pid_clusters[pid] = dict()
+
+        ap_cluster = create_participant_cluster(
+            "AffinityPropagation", data, default_measure
+        )
+
+        for pid, cluster in ap_cluster.items():
+            if "AP" not in pid_clusters[pid].keys():
+                pid_clusters[pid]["AP"] = dict()
+            pid_clusters[pid]["AP"][bug_number, phase_number] = cluster
+
+        sc_cluster = create_participant_cluster(
+            "SpectralClustering", data, default_measure
+        )
+
+        for pid, cluster in sc_cluster.items():
+            if "SC" not in pid_clusters[pid].keys():
+                pid_clusters[pid]["SC"] = dict()
+            pid_clusters[pid]["SC"][bug_number, phase_number] = cluster
+
+
+    with open(output_file_path, "w", newline='') as ofile:
+        ocsv = csv.DictWriter(ofile, fieldnames=fields)
+        ocsv.writeheader()
+
+        for pid, clusters in pid_clusters.items():
+            for cluster_type, trials in clusters.items():
+                for bug_phase_pair, cluster_number in trials.items():
+                    ocsv.writerow({
+                        "PID": pid,
+                        "Bug Number": bug_phase_pair[0],
+                        "Phase Number": bug_phase_pair[1],
+                        "Cluster Type": "Affinity Propagation" if cluster_type == "AP" else "Spectral Clustering",
+                        "Cluster Category": cluster_number
+                    })
+
+
+
+"""
 REQUIRES: 
     data = A pandas dataframe similar to one derived from ingest_data
     
@@ -71,7 +196,7 @@ def create_participant_cluster(which_algorithm, data, measure):
         cluster = AffinityPropagation(affinity='precomputed').fit(affinity)
 
     elif which_algorithm == "SpectralClustering":
-        cluster = SpectralClustering(affinity='precomputed').fit(affinity)
+        cluster = SpectralClustering(affinity='precomputed', n_clusters=2).fit(affinity)
 
     else:
         raise ValueError(
