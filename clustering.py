@@ -182,11 +182,12 @@ def record_clusters(data_file_list, output_file_path, n_clusters, which_measure)
     pid_clusters = dict()
 
     for data_file in data_file_list:
-        bug_number = int(data_file.split("_")[-3][-1])
 
         if data_file.split("_")[-2] != "All":
-            phase_number = int(data_file.split("_")[-2][-1])
+            bug_number = int(data_file.split("_")[-4][-1])
+            phase_number = int(data_file.split("_")[-3][-1])
         else:
+            bug_number = int(data_file.split("_")[-3][-1])
             phase_number = 0
 
         data = ingest_data(data_file)
