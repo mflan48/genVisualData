@@ -25,6 +25,9 @@ def position_measure(row): return float(row['Position'])
 def duration_measure(row): return float(row['Duration'])
 
 
+def dur_and_length_measure(row): return (length_measure(row)**2) + (duration_measure(row)**2)
+
+
 """
 REQUIRES: path_to_file is the relative path to a CSV file
     containing fields for subject 1, subject 2 and the scores 
@@ -59,16 +62,21 @@ matching phase/bug pairs should be evaluated as a unit.
 
 Answer question:
     In general, when we run the clustering algorithm, how "good" is it at
-    picking out two groups? The more groups are created, the worse
+    picking out two categorical groups? The more groups are created, the worse
 """
 
 
-def evaluate_clustering(cluster_data_file):
+def evaluate_clustering_2cat(cluster_data_file, fieldname, cat1, cat2, is_split_by_phases=False):
     data = pd.read_csv(cluster_data_file)
     data = data[data["Cluster Type"] == "Spectral Clustering"]
 
+    if is_split_by_phases:
+        phase_range = [1, 2, 3]
+    else:
+        phase_range = [0]
+
     for bug in [1, 2]:
-        for phase in [1, 2, 3]:
+        for phase in phase_range:
             print("Bug " + str(bug) + " Phase " + str(phase))
 
             cluster_data = data[(data["Bug Number"] == bug) &
@@ -78,10 +86,50 @@ def evaluate_clustering(cluster_data_file):
 
             for cluster_num in cluster_nums:
                 category = cluster_data[cluster_data["Cluster Category"] == cluster_num]
-                num_m = len(category[category["Gender"] == "M"])
-                num_f = len(category[category["Gender"] == "F"])
-                print("\t" + str(cluster_num) + " = M: " + str(num_m) + "/" + str(len(category)) + "\t" +
-                      str(cluster_num) + " = F: " + str(num_f) + "/" + str(len(category)))
+                num_m = len(category[category[fieldname] == cat1])
+                num_f = len(category[category[fieldname] == cat2])
+                print("\t" + str(cluster_num) + " = "+cat1+": " + str(num_m) + "/" + str(len(category)) + "\t" +
+                      str(cluster_num) + " = "+cat2+": " + str(num_f) + "/" + str(len(category)))
+
+
+def get_mean_of_field(metadata_file, fieldname):
+    return pd.read_csv(metadata_file)[fieldname].mean()
+
+
+def get_median_of_field(metadata_file, fieldname):
+    return pd.read_csv(metadata_file)[fieldname].median()
+
+
+"""
+Evaluate categories based on higher or lower numeric values than the given center.
+(To be used for self-reported experience measures).
+"""
+
+
+def evaluate_clustering_2end(cluster_data_file, fieldname, field_center, is_split_by_phases=False):
+    data = pd.read_csv(cluster_data_file)
+    data = data[data["Cluster Type"] == "Spectral Clustering"]
+
+    if is_split_by_phases:
+        phase_range = [1, 2, 3]
+    else:
+        phase_range = [0]
+
+    for bug in [1, 2]:
+        for phase in phase_range:
+            print("Bug " + str(bug) + " Phase " + str(phase))
+
+            cluster_data = data[(data["Bug Number"] == bug) &
+                                (data["Phase Number"] == phase)]
+
+            cluster_nums = cluster_data["Cluster Category"].unique()
+
+            for cluster_num in cluster_nums:
+                category = cluster_data[cluster_data["Cluster Category"] == cluster_num]
+                num_greater = len(category[category[fieldname] >= field_center])
+                num_lower = len(category[category[fieldname] < field_center])
+                print("\t" + str(cluster_num) + " = GE: " + str(num_greater) + "/" + str(len(category)) + "\t" +
+                      str(cluster_num) + " = LT: " + str(num_lower) + "/" + str(len(category)))
 
 
 """
@@ -91,7 +139,9 @@ Record metadata to the cluster information file
 
 def append_metadata(data_file, metadata_file, output_file):
     metadata = pd.read_csv(metadata_file)
-    metadata_fields = ["Gender", "Group"]
+    metadata_fields = ["gender", "Experience", "OtherExperience",
+                       "years", "OOPExperience", "JavaExperience",
+                       "Courses", "IDEExperience", "Industry-Number"]
 
     with open(data_file, "r") as infile:
         icsv = csv.DictReader(infile)
@@ -99,19 +149,18 @@ def append_metadata(data_file, metadata_file, output_file):
         with open(output_file, "w", newline='') as ofile:
             ocsv = csv.DictWriter(
                 ofile,
-                fieldnames=icsv.fieldnames+metadata_fields
+                fieldnames=icsv.fieldnames + metadata_fields
             )
             ocsv.writeheader()
 
             for row in icsv:
                 pid = row["PID"]
-                metadata_row = metadata[metadata.PID == pid]
-                gender = metadata_row.Gender.values[0]
-                group = metadata_row.Group.values[0]
+                metadata_row = metadata[metadata.participant == pid]
 
                 out_row = dict(row)
-                out_row["Gender"] = gender
-                out_row["Group"] = group
+
+                for field in metadata_fields:
+                    out_row[field] = metadata_row[field].values[0]
 
                 ocsv.writerow(out_row)
 
@@ -133,25 +182,18 @@ def record_clusters(data_file_list, output_file_path, n_clusters, which_measure)
     pid_clusters = dict()
 
     for data_file in data_file_list:
-        bug_number = int(data_file.split("_")[0][1])
-        phase_number = int(data_file.split("_")[1][1])
+        bug_number = int(data_file.split("_")[-3][-1])
+
+        if data_file.split("_")[-2] != "All":
+            phase_number = int(data_file.split("_")[-2][-1])
+        else:
+            phase_number = 0
 
         data = ingest_data(data_file)
 
         for pid in get_unique_participants(data):
             if pid not in pid_clusters.keys():
                 pid_clusters[pid] = dict()
-
-        """
-        ap_cluster = create_participant_cluster(
-            "AffinityPropagation", data, default_measure
-        )
-
-        for pid, cluster in ap_cluster.items():
-            if "AP" not in pid_clusters[pid].keys():
-                pid_clusters[pid]["AP"] = dict()
-            pid_clusters[pid]["AP"][bug_number, phase_number] = cluster
-        """
 
         sc_cluster = create_participant_cluster(
             "SpectralClustering", data, which_measure, n_clusters
