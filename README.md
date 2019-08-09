@@ -1,6 +1,6 @@
 # Description
 This project contains scripts to create various data files/analyses for our experiment:
-1) Generate visual/multimatch data for all the participants. ^It is unclear what this means
+1) Generate the files need to conduct visual analysis and multimatch analysis for all the participants. 
 2) Calculate distribution and transition matrices for each of the phases for all of the participants
 3) Calculate conventional eye-tracking metrics based on fixations and saccades.
 4) Given similarity scores from MultiMatch, separate participants into clusters.
@@ -16,7 +16,14 @@ For our experiment, we split the fixation data into three _phases_:
 This script will separate the data into groups for each bug and for each phase in each bug. For each of those, it will create files to generate the following graphics and computations: [alpscarf tool](https://github.com/Chia-KaiYang/alpscarf), [radial transition graph tool](http://www.rtgct.fbeck.com/), scatter plots, and [multimatch tool](https://multimatch.readthedocs.io/en/latest/index.html).
 It creates these csv files from the `merged_data.csv` file that is created by the [iTrace-post project](https://github.com/ianbtr/iTrace-post).
 
-This script will also create Distribution and Transition csv files for each of the bugs for all of the participants. ^ Explain what data these files contain.
+This script will also create Distribution and Transition csv files for each of the bugs for all of the participants. The Distribution csv file contains the percentage of time the participant spent on each of the software entities listed below for each of the three phases. The Transition csv file contains a transition matrix between each of the entities for each phase for all of the participants.
+
+1) Comments
+2) Method_Body
+3) Member_Variable
+4) Bug_Report
+5) Class_Signature
+6) Method_Signature
 
 ### _Requirements_
 
@@ -39,7 +46,7 @@ processed_data/
 ```
 * Note: If a certain participant does not have any data for a specific bug, the subdirectory for that bug is not required.
 
-In order to split the data up by phases, two epoch times (^ units? ms or s?) are needed to distinguish the three stages. These times should be located in a **_CSV file_** with the following header
+In order to split the data up by phases, two epoch times (ms) are needed to distinguish the three stages. These times should be located in a **_CSV file_** with the following header
 
 `Participant,Trial,endPhase1,endPhase2`
 
@@ -55,7 +62,7 @@ Bug1_Output/
 
 ### _Usage_
 
-Below is the command line interface: ^ Which file do you run?
+Below is the command line interface for genAllPhases.py:
 - **Required Arguments**
     - _-p, --processed_ : a path to the processed directory that has the structure described above
     - _-c, --changes_ : a path to a csv file that contains the times of the phases changes
@@ -78,7 +85,7 @@ Below is the command line interface: ^ Which file do you run?
         - `ColUsedForIsAlpScarf-Color`
     - _isAlpScarf_: a string that indicates that the alpscarf plot data should be generated with the AOI column as the passed in argument
     - _isRadial_: a string that indicates the radial data should be generated with the AOIName column as the passed in argument
-    - _isStimulus_: a string that indicates the radial data should be generated with the stimulus column as the passed in argument\n
+    - _isStimulus_: a string that indicates the radial data should be generated with the stimulus column as the passed in argument
    
 ### _Example usage_
 - `python3 genAllPhases.py -p ./processed_data -c ./PhaseChanges.csv -o ./Bug1_Output -t ./Bug2_Output`
