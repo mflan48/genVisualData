@@ -8,8 +8,12 @@ import pandas as pd
 from sklearn.cluster import AffinityPropagation, SpectralClustering
 
 
-def default_measure(row): return sum([float(row[name]) for name in
-                                     ['Shape', 'Length', 'Direction', 'Position', 'Duration']])
+def sum_measure(row): return sum([float(row[name]) for name in
+                                 ['Shape', 'Length', 'Direction', 'Position', 'Duration']])
+
+
+def sum_of_squares_measure(row): return sum([float(row[name])**2 for name in
+                                            ['Shape', 'Length', 'Direction', 'Position', 'Duration']])
 
 
 def length_measure(row): return float(row['Length'])
@@ -57,24 +61,27 @@ Answer question:
     In general, when we run the clustering algorithm, how "good" is it at
     picking out two groups? The more groups are created, the worse
 """
+
+
 def evaluate_clustering(cluster_data_file):
     data = pd.read_csv(cluster_data_file)
     data = data[data["Cluster Type"] == "Spectral Clustering"]
 
     for bug in [1, 2]:
         for phase in [1, 2, 3]:
-            print("Bug", bug, "Phase", phase)
+            print("Bug " + str(bug) + " Phase " + str(phase))
 
             cluster_data = data[(data["Bug Number"] == bug) &
                                 (data["Phase Number"] == phase)]
 
-            cluster_nums = data["Cluster Category"].unique()
+            cluster_nums = cluster_data["Cluster Category"].unique()
 
-            # It is expected that clusters are numbered [0, 1].
-            assert(len(cluster_nums) == 2)
-
-
-
+            for cluster_num in cluster_nums:
+                category = cluster_data[cluster_data["Cluster Category"] == cluster_num]
+                num_m = len(category[category["Gender"] == "M"])
+                num_f = len(category[category["Gender"] == "F"])
+                print("\t" + str(cluster_num) + " = M: " + str(num_m) + "/" + str(len(category)) + "\t" +
+                      str(cluster_num) + " = F: " + str(num_f) + "/" + str(len(category)))
 
 
 """
@@ -114,7 +121,7 @@ Record cluster information to a file
 """
 
 
-def record_clusters(data_file_list, output_file_path):
+def record_clusters(data_file_list, output_file_path, n_clusters, which_measure):
     fields = [
         "PID",
         "Bug Number",
@@ -135,6 +142,7 @@ def record_clusters(data_file_list, output_file_path):
             if pid not in pid_clusters.keys():
                 pid_clusters[pid] = dict()
 
+        """
         ap_cluster = create_participant_cluster(
             "AffinityPropagation", data, default_measure
         )
@@ -143,16 +151,16 @@ def record_clusters(data_file_list, output_file_path):
             if "AP" not in pid_clusters[pid].keys():
                 pid_clusters[pid]["AP"] = dict()
             pid_clusters[pid]["AP"][bug_number, phase_number] = cluster
+        """
 
         sc_cluster = create_participant_cluster(
-            "SpectralClustering", data, default_measure
+            "SpectralClustering", data, which_measure, n_clusters
         )
 
         for pid, cluster in sc_cluster.items():
             if "SC" not in pid_clusters[pid].keys():
                 pid_clusters[pid]["SC"] = dict()
             pid_clusters[pid]["SC"][bug_number, phase_number] = cluster
-
 
     with open(output_file_path, "w", newline='') as ofile:
         ocsv = csv.DictWriter(ofile, fieldnames=fields)
@@ -168,7 +176,6 @@ def record_clusters(data_file_list, output_file_path):
                         "Cluster Type": "Affinity Propagation" if cluster_type == "AP" else "Spectral Clustering",
                         "Cluster Category": cluster_number
                     })
-
 
 
 """
@@ -188,7 +195,7 @@ EFFECT: Creates a clustering of scanpaths based on similarity.
 """
 
 
-def create_participant_cluster(which_algorithm, data, measure):
+def create_participant_cluster(which_algorithm, data, measure, n_clusters):
     subject_order = get_unique_participants(data)
     affinity = create_affinity_matrix(data, subject_order, measure)
 
@@ -196,7 +203,7 @@ def create_participant_cluster(which_algorithm, data, measure):
         cluster = AffinityPropagation(affinity='precomputed').fit(affinity)
 
     elif which_algorithm == "SpectralClustering":
-        cluster = SpectralClustering(affinity='precomputed', n_clusters=2).fit(affinity)
+        cluster = SpectralClustering(affinity='precomputed', n_clusters=n_clusters).fit(affinity)
 
     else:
         raise ValueError(
