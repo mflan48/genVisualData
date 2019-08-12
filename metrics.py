@@ -49,9 +49,7 @@ def compute_all_statistics(output_path):
         "FxCount",
         "FxRate_count_s",
         "AvgFxDuration_ms",
-        "FxScRatio",
-        "AvgScLength_px",
-        "AvgScVelocity_px_s"
+        "AvgScLength_px"
     ]
 
     data_dirs = os.listdir("processed_data")
@@ -78,9 +76,11 @@ def compute_all_statistics(output_path):
                 fixation_count = get_fixation_count(phase_data)
                 fixation_rate = get_fixation_rate(phase_data)
                 afd = get_afd(phase_data)
-                fs_ratio = get_fixation_saccade_ratio(phase_data)
                 avg_saccade_length = get_avg_saccade_length(phase_data)
-                avg_saccade_velocity = get_avg_saccade_velocity(phase_data)
+
+                # The following measures appear not to have worked very well with the iTrace data:
+                # avg_saccade_velocity = get_avg_saccade_velocity(phase_data)
+                # fs_ratio = get_fixation_saccade_ratio(phase_data)
 
                 ocsv.writerow({
                     "PID": pid,
@@ -89,9 +89,7 @@ def compute_all_statistics(output_path):
                     "FxCount": fixation_count,
                     "FxRate_count_s": fixation_rate,
                     "AvgFxDuration_ms": afd,
-                    "FxScRatio": fs_ratio,
-                    "AvgScLength_px": avg_saccade_length,
-                    "AvgScVelocity_px_s": avg_saccade_velocity
+                    "AvgScLength_px": avg_saccade_length
                 })
 
 
@@ -107,6 +105,11 @@ Phases are 1-indexed.
 def query_phase_change_data(which_phase, which_participant, which_bug, phase_data_path, fixation_data_path):
     phase_data = pd.read_csv(phase_data_path)
     fixation_data = pd.read_csv(fixation_data_path)
+
+    # Filtering out null AOI's
+    fixation_data = fixation_data[fixation_data.AOI != -1]
+
+    assert fixation_data[fixation_data.AOI == -1].empty
 
     trial_info = phase_data[(phase_data["Participant"] == which_participant) &
                             (phase_data["Trial"] == which_bug)]
