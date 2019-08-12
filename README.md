@@ -1,6 +1,6 @@
 # Description
 This project contains scripts to create various data files/analyses for our experiment:
-1) Generate the files need to conduct visual analysis and multimatch analysis for all the participants. 
+1) Write the files need to create graphics and run the MultiMatch tool for all the participants. 
 2) Calculate distribution and transition matrices for each of the phases for all of the participants
 3) Calculate conventional eye-tracking metrics based on fixations and saccades.
 4) Given similarity scores from MultiMatch, separate participants into clusters.
@@ -13,7 +13,7 @@ For our experiment, we split the fixation data into three _phases_:
 2) Building on those points 
 3) Fixing the bug. 
 
-This script will separate the data into groups for each bug and for each phase in each bug. For each of those, it will create files to generate the following graphics and computations: [alpscarf tool](https://github.com/Chia-KaiYang/alpscarf), [radial transition graph tool](http://www.rtgct.fbeck.com/), scatter plots, and [multimatch tool](https://multimatch.readthedocs.io/en/latest/index.html).
+This script will separate the data into groups for each bug and for each phase in each bug. For each of those, it will create files to generate the following graphics and computations: [alpscarf tool](https://github.com/Chia-KaiYang/alpscarf), [radial transition graph tool](http://www.rtgct.fbeck.com/), scatter plots, and [MultiMatch tool](https://multimatch.readthedocs.io/en/latest/index.html).
 It creates these csv files from the `merged_data.csv` file that is created by the [iTrace-post project](https://github.com/ianbtr/iTrace-post).
 
 This script will also create Distribution and Transition csv files for each of the bugs for all of the participants. The Distribution csv file contains the percentage of time the participant spent on each of the software entities listed below for each of the three phases. The Transition csv file contains a transition matrix between each of the entities for each phase for all of the participants.
