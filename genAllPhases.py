@@ -157,7 +157,10 @@ class PartTrial:
     #Create the visual datadistribution matr
     def runParticipant(self,transDF,distDF,phaseDict,transDict,distDict):
         print("Running runParticipant for partTrial with ID=" + self.ID)
-        self.createAllPhases(**phaseDict)
+        try:
+            self.createAllPhases(**phaseDict)
+        except FileNotFoundError:
+            pass
         temp = self.createAllTransMatrix(**transDict)
         temp2 = self.createAllDistMatrix(**distDict)
         updateTransDF = pd.concat([transDF,temp],ignore_index=True)
@@ -262,7 +265,7 @@ class Experiment:
         toReturn = {}
         allPaths = sorted(glob.glob(pathProcessed + "/" + globQuery,recursive=True))
         for curPath in allPaths:
-            directories = curPath.split("/")
+            directories = curPath.split("\\")
             curBug = ""
             curID = ""
             for curDir in directories:

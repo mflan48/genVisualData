@@ -94,6 +94,47 @@ def compute_all_statistics(output_path):
 
 
 """
+Add the phase number to each row of the given data file. (March 2020)
+"""
+
+
+def add_phase_column_to_data(output_dir):
+    assert(output_dir != "processed_data")
+    phase_data_path = "phase_changes.csv"
+    data_dirs = os.listdir("processed_data")
+
+    for data_dir in data_dirs:
+        pid = "P" + data_dir.split("_")[0][-3:]
+        bug_number = int(data_dir.split("_")[1][-1])
+        fixation_data_path = "processed_data/" + data_dir + "/merged_data.csv"
+
+        gaze_data = None
+
+        for phase_number in [1, 2, 3]:
+            try:
+                phase_data = query_phase_change_data(
+                    phase_number, pid, bug_number, phase_data_path, fixation_data_path)
+            except PhaseQueryError:
+                continue
+
+            if phase_data.empty:
+                continue
+
+            phase_data['phase_number'] = phase_number
+
+            if gaze_data is None:
+                gaze_data = phase_data
+            else:
+                gaze_data = pd.concat([gaze_data, phase_data])
+
+        output_path = output_dir + "/" + data_dir + "/"
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+
+        gaze_data.to_csv(output_path + "merged_data_with_phase_number.csv")
+
+
+"""
 Return a subset of fixation_data that corresponds to the given phase.
 Phases are 1-indexed.
     Phase 1: times before 1st 10 on-target fixations
